@@ -9,23 +9,24 @@
         :root { --naranja: #f39c12; --amarillo: #f1c40f; --negro: #1a1a1a; --gris: #2c3e50; }
         body { font-family: 'Arial', sans-serif; background: var(--negro); color: white; margin: 0; padding: 10px; }
         
-        /* Cabecera con estilo Abeja */
+        /* Cabecera con Logo y estilo Abeja */
         .header { text-align: center; border-bottom: 4px solid var(--amarillo); padding-bottom: 10px; margin-bottom: 15px; }
-        .header h1 { color: var(--amarillo); margin: 0; font-size: 1.8rem; }
+        .header img { height: 80px; width: auto; margin-bottom: 5px; }
+        .header h1 { color: var(--amarillo); margin: 0; font-size: 1.8rem; letter-spacing: 1px; }
         
         /* Contenedor de Cámara */
         #reader { width: 100%; border-radius: 15px; border: 3px solid var(--naranja); background: #000; overflow: hidden; }
 
         /* Lista de Productos */
-        .carrito { background: var(--gris); border-radius: 15px; padding: 15px; margin-top: 15px; min-height: 150px; }
+        .carrito { background: var(--gris); border-radius: 15px; padding: 15px; margin-top: 15px; min-height: 120px; max-height: 200px; overflow-y: auto; }
         .item { display: flex; justify-content: space-between; border-bottom: 1px solid #444; padding: 8px 0; }
         
         /* Total y Vuelto */
         .seccion-pago { background: var(--naranja); color: black; border-radius: 15px; padding: 20px; margin-top: 15px; text-align: center; }
         .total-grande { font-size: 2.5rem; font-weight: bold; margin: 10px 0; }
         
-        input { width: 80%; padding: 10px; font-size: 1.2rem; border-radius: 10px; border: none; text-align: center; }
-        .btn { width: 100%; padding: 15px; border: none; border-radius: 12px; font-weight: bold; font-size: 1.1rem; cursor: pointer; margin-top: 10px; }
+        input { width: 80%; padding: 12px; font-size: 1.2rem; border-radius: 10px; border: 2px solid var(--negro); text-align: center; background: white; color: black; }
+        .btn { width: 100%; padding: 15px; border: none; border-radius: 12px; font-weight: bold; font-size: 1.1rem; cursor: pointer; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
         .btn-scan { background: var(--amarillo); color: black; }
         .btn-cobrar { background: #27ae60; color: white; }
     </style>
@@ -33,7 +34,8 @@
 <body>
 
 <div class="header">
-    <h1>🍯 ALMACÉN HONEY 🛒</h1>
+    <img src="almacenhoney.png" alt="Logo Honey">
+    <h1>ALMACÉN HONEY</h1>
 </div>
 
 <div id="reader"></div>
@@ -48,7 +50,7 @@
     <div class="total-grande" id="total-final">$ 0.00</div>
     
     <input type="number" id="paga-con" placeholder="¿Con cuánto paga?" oninput="calcularVuelto()">
-    <div style="margin-top:10px; font-weight:bold;">
+    <div style="margin-top:15px; font-weight:bold; font-size: 1.2rem;">
         VUELTO: <span id="vuelto">$ 0.00</span>
     </div>
     
@@ -61,19 +63,19 @@
     const scanner = new Html5Qrcode("reader");
 
     function iniciarEscaneo() {
-        scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (codigo) => {
+        // Configuramos para que sea rápido y use la cámara trasera
+        scanner.start({ facingMode: "environment" }, { fps: 15, qrbox: { width: 250, height: 150 } }, (codigo) => {
             agregarAlCarrito(codigo);
-            scanner.stop();
-        });
+            scanner.stop(); // Detenemos para que no escanee el mismo mil veces
+        }).catch(err => alert("Error de cámara: " + err));
     }
 
     function agregarAlCarrito(codigo) {
-        // SIMULACIÓN: Aquí luego buscaremos en Supabase
-        // Por ahora, inventamos un producto para la prueba
+        // Por ahora simulado, mañana lo conectamos a Supabase
         const nuevoProducto = {
             id: codigo,
             nombre: "Producto Escaneado",
-            precio: 1500 // Precio de prueba
+            precio: 1500 
         };
 
         carrito.push(nuevoProducto);
@@ -84,6 +86,10 @@
         const lista = document.getElementById('lista-productos');
         lista.innerHTML = "";
         total = 0;
+
+        if(carrito.length === 0) {
+            lista.innerHTML = '<p style="text-align:center; color: #bdc3c7;">El carrito está vacío</p>';
+        }
 
         carrito.forEach(prod => {
             total += prod.precio;
@@ -101,13 +107,17 @@
 
     function calcularVuelto() {
         const pagaCon = document.getElementById('paga-con').value;
-        const vuelto = pagaCon - total;
-        document.getElementById('vuelto').innerText = (vuelto > 0) ? `$ ${vuelto.toFixed(2)}` : "$ 0.00";
+        if(pagaCon > 0) {
+            const vuelto = pagaCon - total;
+            document.getElementById('vuelto').innerText = (vuelto >= 0) ? `$ ${vuelto.toFixed(2)}` : "Falta dinero";
+        } else {
+            document.getElementById('vuelto').innerText = "$ 0.00";
+        }
     }
 
     function finalizarVenta() {
-        if(total === 0) return alert("El carrito está vacío");
-        alert("Venta registrada con éxito. ¡Gracias por su compra!");
+        if(total === 0) return alert("No hay nada que cobrar");
+        alert("¡Venta finalizada en Almacén Honey!");
         carrito = [];
         document.getElementById('paga-con').value = "";
         actualizarPantalla();
