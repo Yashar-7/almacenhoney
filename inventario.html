@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Panel de Control - Almacén Honey</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --naranja: #f39c12; --amarillo: #f1c40f; --negro: #1a1a1a; }
+        body { font-family: sans-serif; background: var(--negro); color: white; padding: 20px; text-align: center; }
+        .card { background: #2c3e50; padding: 20px; border-radius: 20px; margin-top: 20px; text-align: left; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 10px; border: none; box-sizing: border-box; font-size: 1rem; }
+        .btn { width: 100%; padding: 15px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .btn-scan { background: var(--amarillo); color: black; }
+        .btn-save { background: #22c55e; color: white; }
+        h2 { color: var(--amarillo); }
+        label { font-size: 0.8rem; color: var(--naranja); margin-left: 5px; }
+    </style>
+</head>
+<body>
+
+    <h2>🍯 Gestión de Inventario</h2>
+    <div id="reader" style="width: 100%; border-radius: 15px; overflow: hidden; border: 2px solid var(--amarillo);"></div>
+    <button class="btn btn-scan" onclick="iniciarEscaneo()">📷 ESCANEAR NUEVO PRODUCTO</button>
+
+    <div class="card">
+        <label>Código de Barras</label>
+        <input type="text" id="cod" readonly placeholder="Escanea un producto...">
+        
+        <label>Nombre del Producto</label>
+        <input type="text" id="nom" placeholder="Ej: Harina 1kg">
+        
+        <label>Precio de Venta ($)</label>
+        <input type="number" id="pre" placeholder="0.00">
+        
+        <label>Stock Actual</label>
+        <input type="number" id="sto" placeholder="Cantidad en estante">
+
+        <button class="btn btn-save" onclick="guardarProducto()">💾 GUARDAR EN BASE DE DATOS</button>
+    </div>
+
+<script>
+    const SB_URL = "https://svpurpvbiujhcbiugrkh.supabase.co";
+    const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2cHVycHZiaXVqaGNiaXVncmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3NDgzMTUsImV4cCI6MjA4MzMyNDMxNX0.AivKJ0_N0z_4T4vLNfUcE2hepJ1XXOO8-4fSA3PJXdc";
+    const _supabase = supabase.createClient(SB_URL, SB_KEY);
+
+    const scanner = new Html5Qrcode("reader");
+
+    function iniciarEscaneo() {
+        scanner.start({ facingMode: "environment" }, { fps: 15, qrbox: 250 }, (codigo) => {
+            document.getElementById('cod').value = codigo;
+            scanner.stop();
+            verificarExistencia(codigo);
+        });
+    }
+
+    async function verificarExistencia(codigo) {
+        const { data } = await _supabase.from('productos_almacen').select('*').eq('codigo_barras', codigo).single();
+        if (data) {
+            alert("El producto ya existe. Puedes actualizar su precio o stock.");
+            document.getElementById('nom').value = data.nombre;
+            document.getElementById('pre').value = data.precio;
+            document.getElementById('sto').value = data.existencias;
+        } else {
+            alert("Producto nuevo detectado. ¡Cárgalo!");
+            document.getElementById('nom').value = "";
+            document.getElementById('pre').value = "";
+            document.getElementById('sto').value = "";
+        }
+    }
+
+    async function guardarProducto() {
+        const cod = document.getElementById('cod').value;
+        const nom = document.getElementById('nom').value;
+        const pre = document.getElementById('pre').value;
+        const sto = document.getElementById('sto').value;
+
+        if(!cod || !nom || !pre) return alert("Completa los datos");
+
+        const { error } = await _supabase.from('productos_almacen').upsert({
+            codigo_barras: cod,
+            nombre: nom,
+            precio: parseFloat(pre),
+            existencias: parseInt(sto)
+        }, { onConflict: 'codigo_barras' });
+
+        if (error) {
+            alert("Error al guardar: " + error.message);
+        } else {
+            alert("✅ ¡Producto guardado exitosamente!");
+            location.reload(); // Limpiar pantalla
+        }
+    }
+</script>
+</body>
+</html>
