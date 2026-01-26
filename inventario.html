@@ -22,7 +22,7 @@
 
     <h2>🍯 Gestión de Inventario</h2>
     <div id="reader" style="width: 100%; border-radius: 15px; overflow: hidden; border: 2px solid var(--amarillo);"></div>
-    <button class="btn btn-scan" onclick="iniciarEscaneo()">📷 ESCANEAR NUEVO PRODUCTO</button>
+    <button class="btn btn-scan" onclick="iniciarEscaneo()">📷 ESCANEAR PRODUCTO</button>
 
     <div class="card">
         <label>Código de Barras</label>
@@ -58,12 +58,12 @@
     async function verificarExistencia(codigo) {
         const { data } = await _supabase.from('productos_almacen').select('*').eq('codigo_barras', codigo).single();
         if (data) {
-            alert("El producto ya existe. Puedes actualizar su precio o stock.");
+            alert("¡Producto encontrado! Puedes editarlo.");
             document.getElementById('nom').value = data.nombre;
             document.getElementById('pre').value = data.precio;
-            document.getElementById('sto').value = data.existencias;
+            document.getElementById('sto').value = data.stock; // Nombre corregido a 'stock'
         } else {
-            alert("Producto nuevo detectado. ¡Cárgalo!");
+            alert("Producto nuevo. ¡Completa los datos!");
             document.getElementById('nom').value = "";
             document.getElementById('pre').value = "";
             document.getElementById('sto').value = "";
@@ -76,20 +76,26 @@
         const pre = document.getElementById('pre').value;
         const sto = document.getElementById('sto').value;
 
-        if(!cod || !nom || !pre) return alert("Completa los datos");
+        if(!cod || !nom || !pre) return alert("Por favor, completa Nombre y Precio.");
 
+        // Usamos 'stock' para que coincida con tu Supabase
         const { error } = await _supabase.from('productos_almacen').upsert({
             codigo_barras: cod,
             nombre: nom,
             precio: parseFloat(pre),
-            existencias: parseInt(sto)
+            stock: parseInt(sto) || 0 
         }, { onConflict: 'codigo_barras' });
 
         if (error) {
-            alert("Error al guardar: " + error.message);
+            alert("Error de Supabase: " + error.message);
+            console.log(error);
         } else {
             alert("✅ ¡Producto guardado exitosamente!");
-            location.reload(); // Limpiar pantalla
+            // Limpiamos los campos para el siguiente
+            document.getElementById('cod').value = "";
+            document.getElementById('nom').value = "";
+            document.getElementById('pre').value = "";
+            document.getElementById('sto').value = "";
         }
     }
 </script>
