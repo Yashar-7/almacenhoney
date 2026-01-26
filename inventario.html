@@ -22,7 +22,12 @@
         .desglose-metodos { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 10px; font-size: 0.85rem; border-top: 1px solid #333; padding-top: 8px; }
         .historial-item { border-bottom: 1px solid #444; padding: 10px 0; }
         .historial-dia { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 5px; }
-        .txt-efectivo { color: var(--verde); } .txt-tarjeta { color: var(--azul); } .txt-qr { color: var(--morado); } .txt-trans { color: var(--naranja); }
+        
+        /* ESTILOS NUEVOS BUSCADOR */
+        .search-results { background: #1a1a1a; border-radius: 8px; max-height: 200px; overflow-y: auto; margin-top: 5px; }
+        .search-item { padding: 10px; border-bottom: 1px solid #333; cursor: pointer; display: flex; justify-content: space-between; }
+        .search-item:hover { background: #333; }
+        .badge-stock { background: var(--azul); padding: 2px 6px; border-radius: 5px; font-size: 0.8rem; }
     </style>
 </head>
 <body>
@@ -30,11 +35,186 @@
     <h2>🍯 Gestión Almacén Honey</h2>
     
     <div id="reader" style="width: 100%; border-radius: 15px; overflow: hidden; border: 2px solid var(--amarillo);"></div>
-    <button class="btn btn-scan" onclick="iniciarEscaneo()">📷 ESCANEAR PRODUCTO</button>
+    <button class="btn btn-scan" onclick="iniciarEscaneo()">📷 ESCANEAR PARA EDITAR/CARGAR</button>
 
     <div class="card">
-        <h3>📦 Mercadería</h3>
-        <input type="text" id="cod" readonly placeholder="Código de barras">
+        <h3>📦 Editor de Producto</h3>
+        <label style="color:var(--amarillo); font-size: 0.8rem;">Escribe el nombre abajo para buscar manualmente ↓</label>
+        <input type="text" id="nom" placeholder="Nombre del producto" oninput="buscarManual(this.value)">
+        <div id="resultados-busqueda" class="search-results"></div>
+        
+        <input type="text" id="cod" readonly placeholder="Código de barras (automático)" style="background:#444; color:#ccc;">
+        <input type="number" id="pre" placeholder="Precio de Venta $">
+        <input type="number" id="sto" placeholder="Stock Actual">
+        <button class="btn btn-save" onclick="guardarProducto()">💾 GUARDAR CAMBIOS / NUEVO</button>
+    </div>
+
+    <div class="card" style="border-left: 5px solid var(--rojo);">
+        <h3>💸 Registrar Gasto</h3>
+        <input type="text" id="gasto-desc" placeholder="¿En qué gastaste?">
+        <input type="number" id="gasto-monto" placeholder="Monto $">
+        <button class="btn btn-gasto" onclick="guardarGasto()">🧾 REGISTRAR GASTO</button>
+    </div>
+
+    <div class="card" style="border: 2px solid var(--amarillo); background: #000;">
+        <h3>💰 Balance de Hoy</h3>
+        <button class="btn btn-caja" onclick="verBalanceHoy()">📊 CALCULAR HOY</button>
+        <div id="resultado-caja">
+            <div style="display: flex; justify-content: space-between;">
+                <span>Ventas: <b id="v-hoy">$ 0</b></span>
+                <span>Gastos: <b id="g-hoy" style="color:var(--rojo);">$ 0</b></span>
+            </div>
+            <div class="desglose-metodos">
+                <span style="color:var(--verde)">Efe: <b id="v-efe">$0</b></span>
+                <span style="color:var(--azul)">Tar: <b id="v-tar">$0</b></span>
+                <span style="color:var(--morado)">QR: <b id="v-qr">$0</b></span>
+                <span style="color:var(--naranja)">Trans: <b id="v-tra">$0</b></span>
+            </div>
+            <hr style="border:0; border-top:1px solid #333; margin: 10px 0;">
+            <div style="text-align: center;">GANANCIA LIMPIA:</div>
+            <span id="ganancia-hoy" class="ganancia">$ 0.00</span>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>📅 Historial 7 Días</h3>
+        <div id="lista-historial"></div>
+    </div>
+
+<script>
+    const SB_URL = "https://svpurpvbiujhcbiugrkh.supabase.co";
+    const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2cHVycHZiaXVqaGNiaXVncmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3NDgzMTUsImV4cCI6MjA4MzMyNDMxNX0.AivKJ0_N0z_4T4vLNfUcE2hepJ1XXOO8-4fSA3PJXdc";
+    const _supabase = supabase.createClient(SB_URL, SB_KEY);
+
+    const scanner = new Html5Qrcode("reader");
+
+    function iniciarEscaneo() {
+        scanner.start({ facingMode: "environment" }, { fps: 15, qrbox: 250 }, (codigo) => {
+            document.getElementById('cod').value = codigo;
+            scanner.stop();
+            verificarExistencia(codigo);
+        });
+    }
+
+    async function verificarExistencia(codigo) {
+        const { data } = await _supabase.from('productos_almacen').select('*').eq('codigo_barras', codigo).single();
+        if (data) {
+            cargarEnFormulario(data);
+        } else {
+            alert("Producto nuevo. Ingresa nombre y precio.");
+        }
+    }
+
+    // BUSCADOR MANUAL POR NOMBRE
+    async function buscarManual(query) {
+        const divResultados = document.getElementById('resultados-busqueda');
+        if (query.length < 2) { divResultados.innerHTML = ""; return; }
+
+        const { data, error } = await _supabase
+            .from('productos_almacen')
+            .select('*')
+            .ilike('nombre', `%${query}%`)
+            .limit(5);
+
+        divResultados.innerHTML = "";
+        if (data) {
+            data.forEach(p => {
+                const item = document.createElement('div');
+                item.className = 'search-item';
+                item.innerHTML = `<span>${p.nombre}</span> <span class="badge-stock">$${p.precio} | Stock: ${p.stock}</span>`;
+                item.onclick = () => {
+                    cargarEnFormulario(p);
+                    divResultados.innerHTML = "";
+                };
+                divResultados.appendChild(item);
+            });
+        }
+    }
+
+    function cargarEnFormulario(p) {
+        document.getElementById('cod').value = p.codigo_barras;
+        document.getElementById('nom').value = p.nombre;
+        document.getElementById('pre').value = p.precio;
+        document.getElementById('sto').value = p.stock;
+    }
+
+    async function guardarProducto() {
+        const cod = document.getElementById('cod').value;
+        const nom = document.getElementById('nom').value;
+        const pre = document.getElementById('pre').value;
+        const sto = document.getElementById('sto').value;
+
+        if(!nom || !pre) return alert("Mínimo nombre y precio.");
+
+        const { error } = await _supabase.from('productos_almacen').upsert({
+            codigo_barras: cod || "MANUAL-" + nom.substring(0,3).toUpperCase(),
+            nombre: nom,
+            precio: parseFloat(pre),
+            stock: parseInt(sto) || 0 
+        }, { onConflict: 'codigo_barras' });
+
+        if (error) alert("Error: " + error.message);
+        else {
+            alert("✅ ¡Producto actualizado/guardado!");
+            location.reload();
+        }
+    }
+
+    async function guardarGasto() {
+        const desc = document.getElementById('gasto-desc').value;
+        const monto = document.getElementById('gasto-monto').value;
+        if(!desc || !monto) return alert("Faltan datos");
+        await _supabase.from('gastos_honey').insert([{ descripcion: desc, monto: parseFloat(monto) }]);
+        alert("🧾 Gasto anotado");
+        document.getElementById('gasto-desc').value = "";
+        document.getElementById('gasto-monto').value = "";
+    }
+
+    async function verBalanceHoy() {
+        let inicioDia = new Date();
+        inicioDia.setHours(0,0,0,0);
+        const { data: v } = await _supabase.from('ventas_honey').select('*').gte('fecha', inicioDia.toISOString());
+        const { data: g } = await _supabase.from('gastos_honey').select('monto').gte('fecha', inicioDia.toISOString());
+
+        let efe = v.filter(x => x.metodo_pago === 'Efectivo').reduce((s, i) => s + i.total, 0);
+        let tar = v.filter(x => x.metodo_pago === 'Tarjeta').reduce((s, i) => s + i.total, 0);
+        let qrr = v.filter(x => x.metodo_pago === 'QR').reduce((s, i) => s + i.total, 0);
+        let tra = v.filter(x => x.metodo_pago === 'Transferencia').reduce((s, i) => s + i.total, 0);
+        
+        let totalV = efe + tar + qrr + tra;
+        let totalG = g.reduce((s, i) => s + (i.monto || 0), 0);
+
+        document.getElementById('v-hoy').innerText = "$ " + totalV.toFixed(2);
+        document.getElementById('g-hoy').innerText = "$ " + totalG.toFixed(2);
+        document.getElementById('v-efe').innerText = "$" + efe.toFixed(0);
+        document.getElementById('v-tar').innerText = "$" + tar.toFixed(0);
+        document.getElementById('v-qr').innerText = "$" + qrr.toFixed(0);
+        document.getElementById('v-tra').innerText = "$" + tra.toFixed(0);
+        document.getElementById('ganancia-hoy').innerText = "$ " + (totalV - totalG).toFixed(2);
+        verHistorial();
+    }
+
+    async function verHistorial() {
+        const lista = document.getElementById('lista-historial');
+        lista.innerHTML = "Cargando...";
+        let hoy = new Date();
+        let historialHTML = "";
+        for (let i = 0; i < 7; i++) {
+            let dia = new Date(); dia.setDate(hoy.getDate() - i); dia.setHours(0,0,0,0);
+            let fin = new Date(dia); fin.setHours(23,59,59,999);
+            const { data: v } = await _supabase.from('ventas_honey').select('total').gte('fecha', dia.toISOString()).lte('fecha', fin.toISOString());
+            const { data: g } = await _supabase.from('gastos_honey').select('monto').gte('fecha', dia.toISOString()).lte('fecha', fin.toISOString());
+            let sv = v ? v.reduce((s, x) => s + (x.total || 0), 0) : 0;
+            let sg = g ? g.reduce((s, x) => s + (x.monto || 0), 0) : 0;
+            let neto = sv - sg;
+            let nombreDia = dia.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' });
+            historialHTML += `<div class="historial-item"><div class="historial-dia"><span style="text-transform:capitalize">${nombreDia}</span><span style="color:${neto>=0?'var(--verde)':'var(--rojo)'}">$${neto.toFixed(2)}</span></div></div>`;
+        }
+        lista.innerHTML = historialHTML;
+    }
+</script>
+</body>
+            </html>        <input type="text" id="cod" readonly placeholder="Código de barras">
         <input type="text" id="nom" placeholder="Nombre">
         <input type="number" id="pre" placeholder="Precio $">
         <input type="number" id="sto" placeholder="Stock">
