@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Panel Honey - Inventario y Finanzas</title>
+    <title>Panel Honey - Control Total</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
@@ -20,6 +20,7 @@
         label { font-size: 0.8rem; color: var(--amarillo); opacity: 0.8; }
         #resultado-caja { font-size: 1.1rem; margin-top: 10px; background: #1a1a1a; padding: 10px; border-radius: 10px; }
         .ganancia { color: var(--verde); font-size: 1.5rem; display: block; margin-top: 5px; }
+        .historial-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #444; font-size: 0.9rem; }
     </style>
 </head>
 <body>
@@ -30,29 +31,35 @@
     <button class="btn btn-scan" onclick="iniciarEscaneo()">📷 ESCANEAR PRODUCTO</button>
 
     <div class="card">
-        <h3>📦 Cargar Mercadería</h3>
-        <label>Código / Nombre / Precio / Stock</label>
+        <h3>📦 Mercadería</h3>
         <input type="text" id="cod" readonly placeholder="Código de barras">
-        <input type="text" id="nom" placeholder="Nombre del producto">
+        <input type="text" id="nom" placeholder="Nombre">
         <input type="number" id="pre" placeholder="Precio $">
-        <input type="number" id="sto" placeholder="Stock cantidad">
-        <button class="btn btn-save" onclick="guardarProducto()">💾 GUARDAR PRODUCTO</button>
+        <input type="number" id="sto" placeholder="Stock">
+        <button class="btn btn-save" onclick="guardarProducto()">💾 GUARDAR</button>
     </div>
 
     <div class="card" style="border-left: 5px solid var(--rojo);">
-        <h3>💸 Registrar Gasto</h3>
-        <input type="text" id="gasto-desc" placeholder="¿En qué gastaste? (Ej: Luz)">
+        <h3>💸 Gasto</h3>
+        <input type="text" id="gasto-desc" placeholder="¿En qué gastaste?">
         <input type="number" id="gasto-monto" placeholder="Monto $">
-        <button class="btn btn-gasto" onclick="guardarGasto()">🧾 REGISTRAR GASTO</button>
+        <button class="btn btn-gasto" onclick="guardarGasto()">🧾 REGISTRAR</button>
     </div>
 
     <div class="card" style="border: 2px solid var(--amarillo); background: #000;">
-        <h3>💰 Balance del Día</h3>
-        <button class="btn btn-caja" onclick="verBalanceHoy()">📊 CALCULAR GANANCIA HOY</button>
+        <h3>💰 Balance de Hoy</h3>
+        <button class="btn btn-caja" onclick="verBalanceHoy()">📊 CALCULAR HOY</button>
         <div id="resultado-caja">
             Ventas: <span id="v-hoy">$ 0</span> | Gastos: <span id="g-hoy">$ 0</span>
             <hr>
             GANANCIA LIMPIA: <span id="ganancia-hoy" class="ganancia">$ 0.00</span>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>📅 Historial Últimos 7 Días</h3>
+        <div id="lista-historial">
+            <p style="color:gray; font-size:0.8rem;">Toca "Calcular Hoy" para actualizar historial</p>
         </div>
     </div>
 
@@ -86,44 +93,64 @@
         const pre = document.getElementById('pre').value;
         const sto = document.getElementById('sto').value;
         if(!cod || !nom || !pre) return alert("Faltan datos");
-
-        await _supabase.from('productos_almacen').upsert({
-            codigo_barras: cod, nombre: nom, precio: parseFloat(pre), stock: parseInt(sto) || 0 
-        }, { onConflict: 'codigo_barras' });
-        alert("✅ Producto Guardado");
+        await _supabase.from('productos_almacen').upsert({ codigo_barras: cod, nombre: nom, precio: parseFloat(pre), stock: parseInt(sto) || 0 }, { onConflict: 'codigo_barras' });
+        alert("✅ Guardado");
         location.reload();
     }
 
     async function guardarGasto() {
         const desc = document.getElementById('gasto-desc').value;
         const monto = document.getElementById('gasto-monto').value;
-        if(!desc || !monto) return alert("Escribe el gasto y el monto");
-
-        const { error } = await _supabase.from('gastos_honey').insert([{ descripcion: desc, monto: parseFloat(monto) }]);
-        if (error) alert("Error: " + error.message);
-        else {
-            alert("🧾 Gasto registrado");
-            document.getElementById('gasto-desc').value = "";
-            document.getElementById('gasto-monto').value = "";
-        }
+        if(!desc || !monto) return alert("Faltan datos");
+        await _supabase.from('gastos_honey').insert([{ descripcion: desc, monto: parseFloat(monto) }]);
+        alert("🧾 Gasto anotado");
+        document.getElementById('gasto-desc').value = "";
+        document.getElementById('gasto-monto').value = "";
     }
 
     async function verBalanceHoy() {
         let inicioDia = new Date();
         inicioDia.setHours(0,0,0,0);
-        const fechaISO = inicioDia.toISOString();
-
-        // Obtener Ventas
-        const { data: v } = await _supabase.from('ventas_honey').select('total').gte('fecha', fechaISO);
-        // Obtener Gastos
-        const { data: g } = await _supabase.from('gastos_honey').select('monto').gte('fecha', fechaISO);
-
+        const { data: v } = await _supabase.from('ventas_honey').select('total').gte('fecha', inicioDia.toISOString());
+        const { data: g } = await _supabase.from('gastos_honey').select('monto').gte('fecha', inicioDia.toISOString());
         let totalV = v.reduce((s, i) => s + (i.total || 0), 0);
         let totalG = g.reduce((s, i) => s + (i.monto || 0), 0);
-        
         document.getElementById('v-hoy').innerText = "$ " + totalV.toFixed(2);
         document.getElementById('g-hoy').innerText = "$ " + totalG.toFixed(2);
         document.getElementById('ganancia-hoy').innerText = "$ " + (totalV - totalG).toFixed(2);
+        verHistorial();
+    }
+
+    async function verHistorial() {
+        const lista = document.getElementById('lista-historial');
+        lista.innerHTML = "Cargando historial...";
+        
+        let hoy = new Date();
+        let historialHTML = "";
+
+        for (let i = 0; i < 7; i++) {
+            let dia = new Date();
+            dia.setDate(hoy.getDate() - i);
+            dia.setHours(0,0,0,0);
+            let finDia = new Date(dia);
+            finDia.setHours(23,59,59,999);
+
+            const { data: v } = await _supabase.from('ventas_honey').select('total').gte('fecha', dia.toISOString()).lte('fecha', finDia.toISOString());
+            const { data: g } = await _supabase.from('gastos_honey').select('monto').gte('fecha', dia.toISOString()).lte('fecha', finDia.toISOString());
+
+            let sv = v ? v.reduce((s, x) => s + (x.total || 0), 0) : 0;
+            let sg = g ? g.reduce((s, x) => s + (x.monto || 0), 0) : 0;
+            let neto = sv - sg;
+
+            let opciones = { weekday: 'long', day: 'numeric' };
+            let nombreDia = dia.toLocaleDateString('es-ES', opciones);
+
+            historialHTML += `<div class="historial-item">
+                <span style="text-transform: capitalize;">${nombreDia}:</span>
+                <span style="color: ${neto >= 0 ? 'var(--verde)' : 'var(--rojo)'}">$ ${neto.toFixed(2)}</span>
+            </div>`;
+        }
+        lista.innerHTML = historialHTML;
     }
 </script>
 </body>
