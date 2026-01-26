@@ -15,12 +15,21 @@
         #reader { width: 100%; border-radius: 15px; border: 3px solid var(--naranja); background: #000; overflow: hidden; }
         .carrito { background: var(--gris); border-radius: 15px; padding: 15px; margin-top: 15px; min-height: 120px; max-height: 200px; overflow-y: auto; }
         .item { display: flex; justify-content: space-between; border-bottom: 1px solid #444; padding: 8px 0; }
-        .seccion-pago { background: var(--naranja); color: black; border-radius: 15px; padding: 20px; margin-top: 15px; text-align: center; }
-        .total-grande { font-size: 2.5rem; font-weight: bold; margin: 10px 0; }
-        input { width: 80%; padding: 12px; font-size: 1.2rem; border-radius: 10px; border: 2px solid var(--negro); text-align: center; }
+        .seccion-pago { background: var(--naranja); color: black; border-radius: 15px; padding: 15px; margin-top: 15px; text-align: center; }
+        .total-grande { font-size: 2.2rem; font-weight: bold; margin: 5px 0; }
+        
+        /* BOTONES DE MÉTODOS */
+        .metodos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        .btn-m { padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: white; font-size: 0.9rem; }
+        .m-efectivo { background: #27ae60; }
+        .m-tarjeta { background: #2980b9; }
+        .m-qr { background: #8e44ad; }
+        .m-transfe { background: #d35400; }
+        .btn-active { border: 3px solid black !important; transform: scale(0.95); }
+
         .btn { width: 100%; padding: 15px; border: none; border-radius: 12px; font-weight: bold; font-size: 1.1rem; cursor: pointer; margin-top: 10px; }
         .btn-scan { background: var(--amarillo); color: black; }
-        .btn-cobrar { background: #27ae60; color: white; }
+        input { width: 80%; padding: 10px; font-size: 1.2rem; border-radius: 10px; border: 2px solid var(--negro); text-align: center; }
     </style>
 </head>
 <body>
@@ -40,11 +49,16 @@
 <div class="seccion-pago">
     <div>TOTAL A COBRAR</div>
     <div class="total-grande" id="total-final">$ 0.00</div>
+    
     <input type="number" id="paga-con" placeholder="¿Con cuánto paga?" oninput="calcularVuelto()">
-    <div style="margin-top:15px; font-weight:bold; font-size: 1.2rem;">
-        VUELTO: <span id="vuelto">$ 0.00</span>
+    <div style="font-weight:bold; margin-top:5px;">VUELTO: <span id="vuelto">$ 0.00</span></div>
+
+    <div class="metodos-grid">
+        <button class="btn-m m-efectivo" onclick="finalizarVenta('Efectivo')">💵 EFECTIVO</button>
+        <button class="btn-m m-tarjeta" onclick="finalizarVenta('Tarjeta')">💳 TARJETA</button>
+        <button class="btn-m m-qr" onclick="finalizarVenta('QR')">📱 QR / MP</button>
+        <button class="btn-m m-transfe" onclick="finalizarVenta('Transferencia')">🏦 TRANSF.</button>
     </div>
-    <button class="btn btn-cobrar" onclick="finalizarVenta()">FINALIZAR VENTA</button>
 </div>
 
 <script>
@@ -64,36 +78,20 @@
     }
 
     async function buscarProducto(codigo) {
-        const { data, error } = await _supabase
-            .from('productos_almacen')
-            .select('*')
-            .eq('codigo_barras', codigo)
-            .single();
-
+        const { data, error } = await _supabase.from('productos_almacen').select('*').eq('codigo_barras', codigo).single();
         if (error || !data) {
-            alert("Producto no registrado. Ve a inventario.html para cargarlo.");
+            alert("Producto no registrado.");
             return;
         }
-
-        carrito.push({
-            id_db: data.id,
-            nombre: data.nombre,
-            precio: parseFloat(data.precio),
-            codigo: data.codigo_barras,
-            stock_actual: data.stock
-        });
-
+        carrito.push({ nombre: data.nombre, precio: parseFloat(data.precio), codigo: data.codigo_barras, stock_actual: data.stock });
         actualizarPantalla();
     }
 
     function actualizarPantalla() {
         const lista = document.getElementById('lista-productos');
         const mensajeVacio = document.getElementById('mensaje-vacio');
-        
         lista.innerHTML = "";
-        // Volvemos a añadir el mensaje de vacío para que no desaparezca del mapa
         lista.appendChild(mensajeVacio);
-        
         total = 0;
 
         if (carrito.length === 0) {
@@ -102,13 +100,9 @@
             mensajeVacio.style.display = 'none';
             carrito.forEach(prod => {
                 total += prod.precio;
-                const itemDiv = document.createElement('div');
-                itemDiv.className = 'item';
-                itemDiv.innerHTML = `<span>${prod.nombre}</span><span>$${prod.precio.toFixed(2)}</span>`;
-                lista.appendChild(itemDiv);
+                lista.innerHTML += `<div class="item"><span>${prod.nombre}</span><span>$${prod.precio.toFixed(2)}</span></div>`;
             });
         }
-
         document.getElementById('total-final').innerText = `$ ${total.toFixed(2)}`;
         calcularVuelto();
     }
@@ -119,37 +113,32 @@
         document.getElementById('vuelto').innerText = (vuelto >= 0) ? `$ ${vuelto.toFixed(2)}` : "Falta dinero";
     }
 
-    async function finalizarVenta() {
-        if(total === 0) return alert("No hay productos en el carrito");
+    async function finalizarVenta(metodo) {
+        if(total === 0) return alert("Carrito vacío");
 
         const resumenProductos = carrito.map(p => p.nombre).join(", ");
 
         try {
-            // 1. Guardar en historial
+            // Guardar Venta con el MÉTODO DE PAGO
             const { error: errorVenta } = await _supabase
                 .from('ventas_honey')
-                .insert([{ productos: resumenProductos, total: total }]);
+                .insert([{ productos: resumenProductos, total: total, metodo_pago: metodo }]);
 
             if (errorVenta) throw errorVenta;
 
-            // 2. Descontar Stock
+            // Descontar Stock
             for (const item of carrito) {
                 const nuevoStock = (item.stock_actual > 0) ? item.stock_actual - 1 : 0;
-                await _supabase
-                    .from('productos_almacen')
-                    .update({ stock: nuevoStock })
-                    .eq('codigo_barras', item.codigo);
+                await _supabase.from('productos_almacen').update({ stock: nuevoStock }).eq('codigo_barras', item.codigo);
             }
 
-            alert("✅ ¡Venta Exitosa!");
-            
-            // 3. Reiniciar todo
+            alert("✅ Venta en " + metodo + " procesada!");
             carrito = [];
             document.getElementById('paga-con').value = "";
             actualizarPantalla();
 
         } catch (err) {
-            alert("Error al finalizar: " + err.message);
+            alert("Error: " + err.message);
         }
     }
 </script>
