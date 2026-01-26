@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Almacén Honey - Carga</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        :root { --celeste: #38bdf8; --fondo: #0f172a; --card: #1e293b; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--fondo); color: white; margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
+        .container { width: 100%; max-width: 450px; }
+        #reader { width: 100%; border-radius: 20px; overflow: hidden; border: 2px solid var(--celeste); background: #000; margin-bottom: 15px; }
+        .card { background: var(--card); padding: 20px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        h2 { color: var(--celeste); text-align: center; margin-bottom: 20px; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 10px; border: 1px solid #334155; background: #0f172a; color: white; box-sizing: border-box; font-size: 1rem; }
+        .btn { width: 100%; padding: 15px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 1rem; margin-top: 10px; transition: 0.2s; }
+        .btn-scan { background: var(--celeste); color: #0f172a; }
+        .btn-save { background: #22c55e; color: white; margin-top: 20px; }
+        #status { text-align: center; font-size: 0.9rem; margin-top: 10px; color: #94a3b8; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🍯 Almacén Honey</h2>
+    
+    <div id="reader"></div>
+    <button class="btn btn-scan" id="btn-cam" onclick="encenderCamara()">ENCENDER CÁMARA</button>
+
+    <div class="card">
+        <input type="text" id="cod" placeholder="Código de Barras" readonly>
+        <input type="text" id="nom" placeholder="Nombre del Producto">
+        <input type="number" id="pre" placeholder="Precio de Venta $">
+        <input type="number" id="sto" placeholder="Stock Inicial">
+        <button class="btn btn-save" onclick="guardar()">GUARDAR EN SISTEMA</button>
+        <div id="status">Esperando escaneo...</div>
+    </div>
+</div>
+
+<script>
+    let html5QrCode = new Html5Qrcode("reader");
+
+    function encenderCamara() {
+        const config = { fps: 15, qrbox: { width: 250, height: 150 } };
+        
+        html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
+            document.getElementById('cod').value = decodedText;
+            document.getElementById('status').innerText = "✅ Código detectado";
+            document.getElementById('status').style.color = "#22c55e";
+            
+            // Sonido o vibración opcional aquí
+            html5QrCode.stop(); 
+        }).catch(err => {
+            alert("Error al abrir cámara. Asegúrate de dar permisos.");
+        });
+    }
+
+    function guardar() {
+        const codigo = document.getElementById('cod').value;
+        const nombre = document.getElementById('nom').value;
+        if(!codigo || !nombre) return alert("Escanea un producto y ponle nombre");
+        
+        alert("¡Muy bien! El código " + codigo + " está listo para enviarse a Supabase.");
+    }
+</script>
+
+</body>
+</html>
