@@ -7,7 +7,7 @@
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
-        :root { --naranja: #f39c12; --amarillo: #f1c40f; --negro: #1a1a1a; --rojo: #e74c3c; --verde: #2ecc71; }
+        :root { --naranja: #f39c12; --amarillo: #f1c40f; --negro: #1a1a1a; --rojo: #e74c3c; --verde: #2ecc71; --azul: #2980b9; --morado: #8e44ad; }
         body { font-family: sans-serif; background: var(--negro); color: white; padding: 15px; text-align: center; }
         .card { background: #2c3e50; padding: 15px; border-radius: 15px; margin-top: 15px; text-align: left; border: 1px solid #444; }
         input { width: 100%; padding: 10px; margin: 8px 0; border-radius: 8px; border: none; box-sizing: border-box; font-size: 1rem; }
@@ -17,10 +17,12 @@
         .btn-gasto { background: var(--rojo); color: white; }
         .btn-caja { background: var(--naranja); color: white; margin-top: 10px; }
         h2, h3 { color: var(--amarillo); margin-bottom: 10px; }
-        label { font-size: 0.8rem; color: var(--amarillo); opacity: 0.8; }
-        #resultado-caja { font-size: 1.1rem; margin-top: 10px; background: #1a1a1a; padding: 10px; border-radius: 10px; }
-        .ganancia { color: var(--verde); font-size: 1.5rem; display: block; margin-top: 5px; }
-        .historial-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #444; font-size: 0.9rem; }
+        #resultado-caja { font-size: 1rem; margin-top: 10px; background: #1a1a1a; padding: 12px; border-radius: 10px; }
+        .ganancia { color: var(--verde); font-size: 1.5rem; display: block; margin-top: 5px; text-align: center; }
+        .desglose-metodos { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 10px; font-size: 0.85rem; border-top: 1px solid #333; padding-top: 8px; }
+        .historial-item { border-bottom: 1px solid #444; padding: 10px 0; }
+        .historial-dia { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 5px; }
+        .txt-efectivo { color: var(--verde); } .txt-tarjeta { color: var(--azul); } .txt-qr { color: var(--morado); } .txt-trans { color: var(--naranja); }
     </style>
 </head>
 <body>
@@ -40,7 +42,7 @@
     </div>
 
     <div class="card" style="border-left: 5px solid var(--rojo);">
-        <h3>💸 Gasto</h3>
+        <h3>💸 Registrar Gasto</h3>
         <input type="text" id="gasto-desc" placeholder="¿En qué gastaste?">
         <input type="number" id="gasto-monto" placeholder="Monto $">
         <button class="btn btn-gasto" onclick="guardarGasto()">🧾 REGISTRAR</button>
@@ -50,16 +52,28 @@
         <h3>💰 Balance de Hoy</h3>
         <button class="btn btn-caja" onclick="verBalanceHoy()">📊 CALCULAR HOY</button>
         <div id="resultado-caja">
-            Ventas: <span id="v-hoy">$ 0</span> | Gastos: <span id="g-hoy">$ 0</span>
-            <hr>
-            GANANCIA LIMPIA: <span id="ganancia-hoy" class="ganancia">$ 0.00</span>
+            <div style="display: flex; justify-content: space-between;">
+                <span>Ventas: <b id="v-hoy">$ 0</b></span>
+                <span>Gastos: <b id="g-hoy" style="color:var(--rojo);">$ 0</b></span>
+            </div>
+            
+            <div class="desglose-metodos">
+                <span class="txt-efectivo">Efe: <b id="v-efe">$0</b></span>
+                <span class="txt-tarjeta">Tar: <b id="v-tar">$0</b></span>
+                <span class="txt-qr">QR: <b id="v-qr">$0</b></span>
+                <span class="txt-trans">Trans: <b id="v-tra">$0</b></span>
+            </div>
+
+            <hr style="border:0; border-top:1px solid #333; margin: 10px 0;">
+            <div style="text-align: center;">GANANCIA LIMPIA:</div>
+            <span id="ganancia-hoy" class="ganancia">$ 0.00</span>
         </div>
     </div>
 
     <div class="card">
-        <h3>📅 Historial Últimos 7 Días</h3>
+        <h3>📅 Historial 7 Días</h3>
         <div id="lista-historial">
-            <p style="color:gray; font-size:0.8rem;">Toca "Calcular Hoy" para actualizar historial</p>
+            <p style="color:gray; font-size:0.8rem; text-align:center;">Toca "Calcular Hoy" para ver historial</p>
         </div>
     </div>
 
@@ -111,20 +125,35 @@
     async function verBalanceHoy() {
         let inicioDia = new Date();
         inicioDia.setHours(0,0,0,0);
-        const { data: v } = await _supabase.from('ventas_honey').select('total').gte('fecha', inicioDia.toISOString());
-        const { data: g } = await _supabase.from('gastos_honey').select('monto').gte('fecha', inicioDia.toISOString());
-        let totalV = v.reduce((s, i) => s + (i.total || 0), 0);
+        const fechaISO = inicioDia.toISOString();
+
+        // Obtener Ventas y Gastos
+        const { data: v } = await _supabase.from('ventas_honey').select('*').gte('fecha', fechaISO);
+        const { data: g } = await _supabase.from('gastos_honey').select('monto').gte('fecha', fechaISO);
+
+        // Calcular Totales por Método
+        let efe = v.filter(x => x.metodo_pago === 'Efectivo').reduce((s, i) => s + i.total, 0);
+        let tar = v.filter(x => x.metodo_pago === 'Tarjeta').reduce((s, i) => s + i.total, 0);
+        let qrr = v.filter(x => x.metodo_pago === 'QR').reduce((s, i) => s + i.total, 0);
+        let tra = v.filter(x => x.metodo_pago === 'Transferencia').reduce((s, i) => s + i.total, 0);
+        
+        let totalV = efe + tar + qrr + tra;
         let totalG = g.reduce((s, i) => s + (i.monto || 0), 0);
+
         document.getElementById('v-hoy').innerText = "$ " + totalV.toFixed(2);
         document.getElementById('g-hoy').innerText = "$ " + totalG.toFixed(2);
+        document.getElementById('v-efe').innerText = "$" + efe.toFixed(0);
+        document.getElementById('v-tar').innerText = "$" + tar.toFixed(0);
+        document.getElementById('v-qr').innerText = "$" + qrr.toFixed(0);
+        document.getElementById('v-tra').innerText = "$" + tra.toFixed(0);
         document.getElementById('ganancia-hoy').innerText = "$ " + (totalV - totalG).toFixed(2);
+        
         verHistorial();
     }
 
     async function verHistorial() {
         const lista = document.getElementById('lista-historial');
-        lista.innerHTML = "Cargando historial...";
-        
+        lista.innerHTML = "Cargando...";
         let hoy = new Date();
         let historialHTML = "";
 
@@ -132,8 +161,7 @@
             let dia = new Date();
             dia.setDate(hoy.getDate() - i);
             dia.setHours(0,0,0,0);
-            let finDia = new Date(dia);
-            finDia.setHours(23,59,59,999);
+            let finDia = new Date(dia); finDia.setHours(23,59,59,999);
 
             const { data: v } = await _supabase.from('ventas_honey').select('total').gte('fecha', dia.toISOString()).lte('fecha', finDia.toISOString());
             const { data: g } = await _supabase.from('gastos_honey').select('monto').gte('fecha', dia.toISOString()).lte('fecha', finDia.toISOString());
@@ -142,13 +170,15 @@
             let sg = g ? g.reduce((s, x) => s + (x.monto || 0), 0) : 0;
             let neto = sv - sg;
 
-            let opciones = { weekday: 'long', day: 'numeric' };
-            let nombreDia = dia.toLocaleDateString('es-ES', opciones);
+            let nombreDia = dia.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' });
 
-            historialHTML += `<div class="historial-item">
-                <span style="text-transform: capitalize;">${nombreDia}:</span>
-                <span style="color: ${neto >= 0 ? 'var(--verde)' : 'var(--rojo)'}">$ ${neto.toFixed(2)}</span>
-            </div>`;
+            historialHTML += `
+                <div class="historial-item">
+                    <div class="historial-dia">
+                        <span style="text-transform:capitalize">${nombreDia}</span>
+                        <span style="color:${neto>=0?'var(--verde)':'var(--rojo)'}">$${neto.toFixed(2)}</span>
+                    </div>
+                </div>`;
         }
         lista.innerHTML = historialHTML;
     }
