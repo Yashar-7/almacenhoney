@@ -48,7 +48,6 @@
 </div>
 
 <script>
-    // Configuración de Supabase
     const SB_URL = "https://svpurpvbiujhcbiugrkh.supabase.co";
     const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2cHVycHZiaXVqaGNiaXVncmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3NDgzMTUsImV4cCI6MjA4MzMyNDMxNX0.AivKJ0_N0z_4T4vLNfUcE2hepJ1XXOO8-4fSA3PJXdc";
     const _supabase = supabase.createClient(SB_URL, SB_KEY);
@@ -65,7 +64,6 @@
     }
 
     async function buscarProducto(codigo) {
-        // Buscamos en la tabla productos_almacen
         const { data, error } = await _supabase
             .from('productos_almacen')
             .select('*')
@@ -73,7 +71,7 @@
             .single();
 
         if (error || !data) {
-            alert("Producto no encontrado: " + codigo);
+            alert("Producto no registrado. Ve a inventario.html para cargarlo.");
             return;
         }
 
@@ -113,7 +111,7 @@
 
     function finalizarVenta() {
         if(total === 0) return alert("No hay productos");
-        alert("Venta procesada. Total: $" + total.toFixed(2));
+        alert("¡Venta exitosa en Almacén Honey!");
         carrito = [];
         document.getElementById('paga-con').value = "";
         actualizarPantalla();
