@@ -3,64 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Almacén Honey - Carga</title>
+    <title>Almacén Honey - Punto de Venta</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        :root { --celeste: #38bdf8; --fondo: #0f172a; --card: #1e293b; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--fondo); color: white; margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
-        .container { width: 100%; max-width: 450px; }
-        #reader { width: 100%; border-radius: 20px; overflow: hidden; border: 2px solid var(--celeste); background: #000; margin-bottom: 15px; }
-        .card { background: var(--card); padding: 20px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-        h2 { color: var(--celeste); text-align: center; margin-bottom: 20px; }
-        input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 10px; border: 1px solid #334155; background: #0f172a; color: white; box-sizing: border-box; font-size: 1rem; }
-        .btn { width: 100%; padding: 15px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 1rem; margin-top: 10px; transition: 0.2s; }
-        .btn-scan { background: var(--celeste); color: #0f172a; }
-        .btn-save { background: #22c55e; color: white; margin-top: 20px; }
-        #status { text-align: center; font-size: 0.9rem; margin-top: 10px; color: #94a3b8; }
+        :root { --naranja: #f39c12; --amarillo: #f1c40f; --negro: #1a1a1a; --gris: #2c3e50; }
+        body { font-family: 'Arial', sans-serif; background: var(--negro); color: white; margin: 0; padding: 10px; }
+        
+        /* Cabecera con estilo Abeja */
+        .header { text-align: center; border-bottom: 4px solid var(--amarillo); padding-bottom: 10px; margin-bottom: 15px; }
+        .header h1 { color: var(--amarillo); margin: 0; font-size: 1.8rem; }
+        
+        /* Contenedor de Cámara */
+        #reader { width: 100%; border-radius: 15px; border: 3px solid var(--naranja); background: #000; overflow: hidden; }
+
+        /* Lista de Productos */
+        .carrito { background: var(--gris); border-radius: 15px; padding: 15px; margin-top: 15px; min-height: 150px; }
+        .item { display: flex; justify-content: space-between; border-bottom: 1px solid #444; padding: 8px 0; }
+        
+        /* Total y Vuelto */
+        .seccion-pago { background: var(--naranja); color: black; border-radius: 15px; padding: 20px; margin-top: 15px; text-align: center; }
+        .total-grande { font-size: 2.5rem; font-weight: bold; margin: 10px 0; }
+        
+        input { width: 80%; padding: 10px; font-size: 1.2rem; border-radius: 10px; border: none; text-align: center; }
+        .btn { width: 100%; padding: 15px; border: none; border-radius: 12px; font-weight: bold; font-size: 1.1rem; cursor: pointer; margin-top: 10px; }
+        .btn-scan { background: var(--amarillo); color: black; }
+        .btn-cobrar { background: #27ae60; color: white; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>🍯 Almacén Honey</h2>
-    
-    <div id="reader"></div>
-    <button class="btn btn-scan" id="btn-cam" onclick="encenderCamara()">ENCENDER CÁMARA</button>
+<div class="header">
+    <h1>🍯 ALMACÉN HONEY 🛒</h1>
+</div>
 
-    <div class="card">
-        <input type="text" id="cod" placeholder="Código de Barras" readonly>
-        <input type="text" id="nom" placeholder="Nombre del Producto">
-        <input type="number" id="pre" placeholder="Precio de Venta $">
-        <input type="number" id="sto" placeholder="Stock Inicial">
-        <button class="btn btn-save" onclick="guardar()">GUARDAR EN SISTEMA</button>
-        <div id="status">Esperando escaneo...</div>
+<div id="reader"></div>
+<button class="btn btn-scan" onclick="iniciarEscaneo()">➕ ESCANEAR PRODUCTO</button>
+
+<div class="carrito" id="lista-productos">
+    <p style="text-align:center; color: #bdc3c7;">El carrito está vacío</p>
+</div>
+
+<div class="seccion-pago">
+    <div>TOTAL A COBRAR</div>
+    <div class="total-grande" id="total-final">$ 0.00</div>
+    
+    <input type="number" id="paga-con" placeholder="¿Con cuánto paga?" oninput="calcularVuelto()">
+    <div style="margin-top:10px; font-weight:bold;">
+        VUELTO: <span id="vuelto">$ 0.00</span>
     </div>
+    
+    <button class="btn btn-cobrar" onclick="finalizarVenta()">FINALIZAR VENTA</button>
 </div>
 
 <script>
-    let html5QrCode = new Html5Qrcode("reader");
+    let carrito = [];
+    let total = 0;
+    const scanner = new Html5Qrcode("reader");
 
-    function encenderCamara() {
-        const config = { fps: 15, qrbox: { width: 250, height: 150 } };
-        
-        html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
-            document.getElementById('cod').value = decodedText;
-            document.getElementById('status').innerText = "✅ Código detectado";
-            document.getElementById('status').style.color = "#22c55e";
-            
-            // Sonido o vibración opcional aquí
-            html5QrCode.stop(); 
-        }).catch(err => {
-            alert("Error al abrir cámara. Asegúrate de dar permisos.");
+    function iniciarEscaneo() {
+        scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (codigo) => {
+            agregarAlCarrito(codigo);
+            scanner.stop();
         });
     }
 
-    function guardar() {
-        const codigo = document.getElementById('cod').value;
-        const nombre = document.getElementById('nom').value;
-        if(!codigo || !nombre) return alert("Escanea un producto y ponle nombre");
-        
-        alert("¡Muy bien! El código " + codigo + " está listo para enviarse a Supabase.");
+    function agregarAlCarrito(codigo) {
+        // SIMULACIÓN: Aquí luego buscaremos en Supabase
+        // Por ahora, inventamos un producto para la prueba
+        const nuevoProducto = {
+            id: codigo,
+            nombre: "Producto Escaneado",
+            precio: 1500 // Precio de prueba
+        };
+
+        carrito.push(nuevoProducto);
+        actualizarPantalla();
+    }
+
+    function actualizarPantalla() {
+        const lista = document.getElementById('lista-productos');
+        lista.innerHTML = "";
+        total = 0;
+
+        carrito.forEach(prod => {
+            total += prod.precio;
+            lista.innerHTML += `
+                <div class="item">
+                    <span>${prod.nombre}</span>
+                    <span>$${prod.precio}</span>
+                </div>
+            `;
+        });
+
+        document.getElementById('total-final').innerText = `$ ${total.toFixed(2)}`;
+        calcularVuelto();
+    }
+
+    function calcularVuelto() {
+        const pagaCon = document.getElementById('paga-con').value;
+        const vuelto = pagaCon - total;
+        document.getElementById('vuelto').innerText = (vuelto > 0) ? `$ ${vuelto.toFixed(2)}` : "$ 0.00";
+    }
+
+    function finalizarVenta() {
+        if(total === 0) return alert("El carrito está vacío");
+        alert("Venta registrada con éxito. ¡Gracias por su compra!");
+        carrito = [];
+        document.getElementById('paga-con').value = "";
+        actualizarPantalla();
     }
 </script>
 
