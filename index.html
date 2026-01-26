@@ -88,21 +88,28 @@
 
     function actualizarPantalla() {
         const lista = document.getElementById('lista-productos');
+        const mensajeVacio = document.getElementById('mensaje-vacio');
+        
         lista.innerHTML = "";
+        // Volvemos a añadir el mensaje de vacío para que no desaparezca del mapa
+        lista.appendChild(mensajeVacio);
+        
         total = 0;
 
-        carrito.forEach(prod => {
-            total += prod.precio;
-            lista.innerHTML += `
-                <div class="item">
-                    <span>${prod.nombre}</span>
-                    <span>$${prod.precio.toFixed(2)}</span>
-                </div>
-            `;
-        });
+        if (carrito.length === 0) {
+            mensajeVacio.style.display = 'block';
+        } else {
+            mensajeVacio.style.display = 'none';
+            carrito.forEach(prod => {
+                total += prod.precio;
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'item';
+                itemDiv.innerHTML = `<span>${prod.nombre}</span><span>$${prod.precio.toFixed(2)}</span>`;
+                lista.appendChild(itemDiv);
+            });
+        }
 
         document.getElementById('total-final').innerText = `$ ${total.toFixed(2)}`;
-        document.getElementById('mensaje-vacio').style.display = carrito.length ? 'none' : 'block';
         calcularVuelto();
     }
 
@@ -115,30 +122,28 @@
     async function finalizarVenta() {
         if(total === 0) return alert("No hay productos en el carrito");
 
-        // 1. Preparamos el resumen de productos para el historial
         const resumenProductos = carrito.map(p => p.nombre).join(", ");
 
         try {
-            // 2. Registramos la venta en 'ventas_honey'
+            // 1. Guardar en historial
             const { error: errorVenta } = await _supabase
                 .from('ventas_honey')
                 .insert([{ productos: resumenProductos, total: total }]);
 
             if (errorVenta) throw errorVenta;
 
-            // 3. Descontamos stock uno por uno
+            // 2. Descontar Stock
             for (const item of carrito) {
                 const nuevoStock = (item.stock_actual > 0) ? item.stock_actual - 1 : 0;
-                
                 await _supabase
                     .from('productos_almacen')
                     .update({ stock: nuevoStock })
                     .eq('codigo_barras', item.codigo);
             }
 
-            alert("✅ Venta procesada con éxito.\nStock actualizado e historial guardado.");
+            alert("✅ ¡Venta Exitosa!");
             
-            // Reiniciar app
+            // 3. Reiniciar todo
             carrito = [];
             document.getElementById('paga-con').value = "";
             actualizarPantalla();
