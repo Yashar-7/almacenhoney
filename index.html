@@ -3,6 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <meta name="theme-color" content="#f39c12">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <link rel="icon" type="image/png" href="almacenhoney.png">
+    <link rel="apple-touch-icon" href="almacenhoney.png">
+
     <title>Almacén Honey - Punto de Venta</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
@@ -25,11 +33,20 @@
         .m-tarjeta { background: #2980b9; }
         .m-qr { background: #8e44ad; }
         .m-transfe { background: #d35400; }
-        .btn-active { border: 3px solid black !important; transform: scale(0.95); }
 
         .btn { width: 100%; padding: 15px; border: none; border-radius: 12px; font-weight: bold; font-size: 1.1rem; cursor: pointer; margin-top: 10px; }
         .btn-scan { background: var(--amarillo); color: black; }
         input { width: 80%; padding: 10px; font-size: 1.2rem; border-radius: 10px; border: 2px solid var(--negro); text-align: center; }
+
+        /* BOTÓN FLOTANTE PARA IR AL INVENTARIO */
+        .btn-float { 
+            position: fixed; bottom: 20px; right: 20px; 
+            background: var(--gris); color: var(--amarillo); 
+            width: 60px; height: 60px; border-radius: 50%; 
+            display: flex; align-items: center; justify-content: center; 
+            font-size: 1.5rem; text-decoration: none; border: 2px solid var(--amarillo);
+            box-shadow: 0px 4px 10px rgba(0,0,0,0.5); z-index: 1000;
+        }
     </style>
 </head>
 <body>
@@ -38,6 +55,8 @@
     <img src="almacenhoney.png" alt="Logo Honey">
     <h1>ALMACÉN HONEY</h1>
 </div>
+
+<a href="inventario.html" class="btn-float">📦</a>
 
 <div id="reader"></div>
 <button class="btn btn-scan" onclick="iniciarEscaneo()">➕ ESCANEAR PRODUCTO</button>
@@ -115,18 +134,13 @@
 
     async function finalizarVenta(metodo) {
         if(total === 0) return alert("Carrito vacío");
-
         const resumenProductos = carrito.map(p => p.nombre).join(", ");
-
         try {
-            // Guardar Venta con el MÉTODO DE PAGO
             const { error: errorVenta } = await _supabase
                 .from('ventas_honey')
                 .insert([{ productos: resumenProductos, total: total, metodo_pago: metodo }]);
-
             if (errorVenta) throw errorVenta;
 
-            // Descontar Stock
             for (const item of carrito) {
                 const nuevoStock = (item.stock_actual > 0) ? item.stock_actual - 1 : 0;
                 await _supabase.from('productos_almacen').update({ stock: nuevoStock }).eq('codigo_barras', item.codigo);
@@ -136,12 +150,10 @@
             carrito = [];
             document.getElementById('paga-con').value = "";
             actualizarPantalla();
-
         } catch (err) {
             alert("Error: " + err.message);
         }
     }
 </script>
-
 </body>
 </html>
