@@ -3,6 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#f39c12">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/517/517563.png">
+    
     <title>Panel Honey - Gestión</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
@@ -24,11 +29,9 @@
         .search-results { background: #1a1a1a; border-radius: 8px; max-height: 150px; overflow-y: auto; }
         .search-item { padding: 10px; border-bottom: 1px solid #333; cursor: pointer; display: flex; justify-content: space-between; font-size: 0.9rem; }
         .historial-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #444; font-size: 0.85rem; }
-        
-        /* Estilos Tabla de Mercadería */
         .tabla-contenedor { overflow-x: auto; margin-top: 10px; background: #1a1a1a; border-radius: 10px; }
         .tabla-inventario { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-        .tabla-inventario th { background: #444; color: var(--amarillo); padding: 10px; text-align: left; position: sticky; top: 0; }
+        .tabla-inventario th { background: #444; color: var(--amarillo); padding: 10px; text-align: left; }
         .tabla-inventario td { padding: 10px; border-bottom: 1px solid #333; }
         .stock-critico { color: var(--rojo); font-weight: bold; }
         .capital-card { background: var(--azul); padding: 10px; border-radius: 10px; margin-bottom: 10px; text-align: center; }
@@ -61,15 +64,8 @@
         <button class="btn btn-lista" onclick="cargarListaMercaderia()">🔄 ACTUALIZAR LISTA</button>
         <div class="tabla-contenedor">
             <table class="tabla-inventario">
-                <thead>
-                    <tr>
-                        <th>Producto</th>
-                        <th>Precio</th>
-                        <th>Stock</th>
-                    </tr>
-                </thead>
-                <tbody id="cuerpo-tabla">
-                    </tbody>
+                <thead><tr><th>Producto</th><th>Precio</th><th>Stock</th></tr></thead>
+                <tbody id="cuerpo-tabla"></tbody>
             </table>
         </div>
     </div>
@@ -81,9 +77,7 @@
             <input type="number" id="gasto-monto" placeholder="$" style="width:100px;">
         </div>
         <button class="btn btn-gasto" onclick="guardarGasto()">🧾 REGISTRAR GASTO</button>
-        
         <hr style="border:0; border-top:1px solid #444; margin: 15px 0;">
-        
         <button class="btn btn-caja" onclick="verBalanceHoy()">📊 VER BALANCE DE HOY</button>
         <div id="resultado-caja">
             <div style="display: flex; justify-content: space-between;">
@@ -105,9 +99,7 @@
 
     <div class="card">
         <h3>📅 Últimos 7 Días</h3>
-        <div id="lista-historial">
-            <p style="color:gray; font-size:0.8rem; text-align:center;">Presiona "Ver Balance" para actualizar</p>
-        </div>
+        <div id="lista-historial"></div>
     </div>
 
 <script>
@@ -116,7 +108,6 @@
     const _supabase = supabase.createClient(SB_URL, SB_KEY);
     const scanner = new Html5Qrcode("reader");
 
-    // Al cargar la página, traer la lista automáticamente
     window.onload = () => { cargarListaMercaderia(); };
 
     function iniciarEscaneo() {
@@ -158,39 +149,27 @@
         const cuerpo = document.getElementById('cuerpo-tabla');
         const txtTotal = document.getElementById('total-stock-pesos');
         cuerpo.innerHTML = "Cargando...";
-
         const { data, error } = await _supabase.from('productos_almacen').select('*').order('nombre', { ascending: true });
-
-        if (error) return alert("Error: " + error.message);
-
-        let html = "";
-        let sumaTotal = 0;
-
+        if (error) return;
+        let html = ""; let sumaTotal = 0;
         data.forEach(p => {
             const esBajo = p.stock <= 3 ? 'stock-critico' : '';
             sumaTotal += (p.precio * p.stock);
-            html += `
-                <tr onclick='cargarEnFormulario(${JSON.stringify(p)})'>
-                    <td>${p.nombre}</td>
-                    <td>$${p.precio}</td>
-                    <td class="${esBajo}">${p.stock}</td>
-                </tr>`;
+            html += `<tr onclick='cargarEnFormulario(${JSON.stringify(p)})'><td>${p.nombre}</td><td>$${p.precio}</td><td class="${esBajo}">${p.stock}</td></tr>`;
         });
         cuerpo.innerHTML = html;
         txtTotal.innerText = "$ " + sumaTotal.toLocaleString();
     }
 
     async function guardarProducto() {
-        const cod = document.getElementById('cod').value;
         const nom = document.getElementById('nom').value;
         const pre = document.getElementById('pre').value;
-        const sto = document.getElementById('sto').value;
         if(!nom || !pre) return alert("Falta Nombre o Precio");
         await _supabase.from('productos_almacen').upsert({
-            codigo_barras: cod || "M-" + nom.substring(0,3).toUpperCase(),
-            nombre: nom, precio: parseFloat(pre), stock: parseInt(sto) || 0 
+            codigo_barras: document.getElementById('cod').value || "M-" + nom.substring(0,3).toUpperCase(),
+            nombre: nom, precio: parseFloat(pre), stock: parseInt(document.getElementById('sto').value) || 0 
         }, { onConflict: 'codigo_barras' });
-        alert("✅ Producto Guardado/Actualizado");
+        alert("✅ Guardado");
         location.reload();
     }
 
@@ -199,23 +178,20 @@
         const monto = document.getElementById('gasto-monto').value;
         if(!desc || !monto) return alert("Completa el gasto");
         await _supabase.from('gastos_honey').insert([{ descripcion: desc, monto: parseFloat(monto) }]);
-        alert("🧾 Gasto anotado");
-        document.getElementById('gasto-desc').value = "";
-        document.getElementById('gasto-monto').value = "";
+        alert("🧾 Anotado");
+        document.getElementById('gasto-desc').value = ""; document.getElementById('gasto-monto').value = "";
     }
 
     async function verBalanceHoy() {
         let hoy = new Date(); hoy.setHours(0,0,0,0);
         const { data: v } = await _supabase.from('ventas_honey').select('*').gte('fecha', hoy.toISOString());
         const { data: g } = await _supabase.from('gastos_honey').select('monto').gte('fecha', hoy.toISOString());
-
         let efe = v.filter(x => x.metodo_pago === 'Efectivo').reduce((s, i) => s + i.total, 0);
         let tar = v.filter(x => x.metodo_pago === 'Tarjeta').reduce((s, i) => s + i.total, 0);
         let qrr = v.filter(x => x.metodo_pago === 'QR').reduce((s, i) => s + i.total, 0);
         let tra = v.filter(x => x.metodo_pago === 'Transferencia').reduce((s, i) => s + i.total, 0);
         let totV = efe + tar + qrr + tra;
         let totG = g.reduce((s, i) => s + (i.monto || 0), 0);
-
         document.getElementById('v-hoy').innerText = "$ " + totV.toFixed(2);
         document.getElementById('g-hoy').innerText = "$ " + totG.toFixed(2);
         document.getElementById('v-efe').innerText = "$" + efe.toFixed(0);
@@ -229,16 +205,14 @@
     async function verHistorial() {
         const lista = document.getElementById('lista-historial');
         lista.innerHTML = "Cargando...";
-        let hoy = new Date();
-        let html = "";
+        let hoy = new Date(); let html = "";
         for (let i = 0; i < 7; i++) {
             let d = new Date(); d.setDate(hoy.getDate() - i); d.setHours(0,0,0,0);
             let f = new Date(d); f.setHours(23,59,59,999);
             const { data: v } = await _supabase.from('ventas_honey').select('total').gte('fecha', d.toISOString()).lte('fecha', f.toISOString());
             const { data: g } = await _supabase.from('gastos_honey').select('monto').gte('fecha', d.toISOString()).lte('fecha', f.toISOString());
             let neto = (v ? v.reduce((s, x) => s + x.total, 0) : 0) - (g ? g.reduce((s, x) => s + x.monto, 0) : 0);
-            let nombre = d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' });
-            html += `<div class="historial-item"><span>${nombre}</span><b style="color:${neto>=0?'var(--verde)':'var(--rojo)'}">$${neto.toFixed(0)}</b></div>`;
+            html += `<div class="historial-item"><span>${d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' })}</span><b style="color:${neto>=0?'var(--verde)':'var(--rojo)'}">$${neto.toFixed(0)}</b></div>`;
         }
         lista.innerHTML = html;
     }
