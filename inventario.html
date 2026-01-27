@@ -25,6 +25,7 @@
         .btn-gasto { background: var(--rojo); color: white; }
         .btn-caja { background: var(--naranja); color: white; }
         .btn-lista { background: var(--azul); color: white; }
+        .btn-nav { background: #555; color: white; margin-bottom: 10px; }
         h2, h3 { color: var(--amarillo); margin: 5px 0; }
         #resultado-caja { font-size: 0.9rem; margin-top: 10px; background: #000; padding: 12px; border-radius: 10px; }
         .ganancia-total { color: var(--verde); font-size: 1.6rem; font-weight: bold; display: block; text-align: center; margin-top: 5px; }
@@ -42,6 +43,8 @@
 </head>
 <body>
 
+    <button class="btn btn-nav" onclick="window.location.href='index.html'">🏠 VOLVER A VENTAS</button>
+
     <h2 style="margin-top:10px;">🍯 Panel Almacén Honey</h2>
     
     <div id="reader" style="width: 100%; border-radius: 15px; overflow: hidden; border: 2px solid var(--amarillo); margin-bottom:10px;"></div>
@@ -52,10 +55,16 @@
         <input type="text" id="nom" placeholder="Buscar por nombre..." oninput="buscarManual(this.value)">
         <div id="resultados-busqueda" class="search-results"></div>
         <input type="text" id="cod" readonly placeholder="Código de barras" style="background:#34495e; color:#bdc3c7;">
-        <div style="display: flex; gap: 10px;">
-            <input type="number" id="pre" placeholder="Precio $">
-            <input type="number" id="sto" placeholder="Stock">
-        </div>
+        
+        <label style="font-size: 0.8rem; color: var(--amarillo);">Precio Costo (Lo que pagaste):</label>
+        <input type="number" id="cos" placeholder="Costo $" step="0.01">
+        
+        <label style="font-size: 0.8rem; color: var(--amarillo);">Precio Venta (Al público):</label>
+        <input type="number" id="pre" placeholder="Venta $" step="0.01">
+        
+        <label style="font-size: 0.8rem; color: var(--amarillo);">Cantidad en Estante:</label>
+        <input type="number" id="sto" placeholder="Stock">
+        
         <button class="btn btn-save" onclick="guardarProducto()">💾 GUARDAR CAMBIOS</button>
     </div>
 
@@ -67,7 +76,7 @@
         <button class="btn btn-lista" onclick="cargarListaMercaderia()">🔄 ACTUALIZAR LISTA</button>
         <div class="tabla-contenedor">
             <table class="tabla-inventario">
-                <thead><tr><th>Producto</th><th>Precio</th><th>Stock</th></tr></thead>
+                <thead><tr><th>Producto</th><th>Costo</th><th>Venta</th><th>Stock</th></tr></thead>
                 <tbody id="cuerpo-tabla"></tbody>
             </table>
         </div>
@@ -143,6 +152,7 @@
     function cargarEnFormulario(p) {
         document.getElementById('cod').value = p.codigo_barras;
         document.getElementById('nom').value = p.nombre;
+        document.getElementById('cos').value = p.precio_costo || 0;
         document.getElementById('pre').value = p.precio;
         document.getElementById('sto').value = p.stock;
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -157,8 +167,9 @@
         let html = ""; let sumaTotal = 0;
         data.forEach(p => {
             const esBajo = p.stock <= 3 ? 'stock-critico' : '';
+            const costo = p.precio_costo || 0;
             sumaTotal += (p.precio * p.stock);
-            html += `<tr onclick='cargarEnFormulario(${JSON.stringify(p)})'><td>${p.nombre}</td><td>$${p.precio}</td><td class="${esBajo}">${p.stock}</td></tr>`;
+            html += `<tr onclick='cargarEnFormulario(${JSON.stringify(p)})'><td>${p.nombre}</td><td>$${costo}</td><td>$${p.precio}</td><td class="${esBajo}">${p.stock}</td></tr>`;
         });
         cuerpo.innerHTML = html;
         txtTotal.innerText = "$ " + sumaTotal.toLocaleString();
@@ -167,10 +178,14 @@
     async function guardarProducto() {
         const nom = document.getElementById('nom').value;
         const pre = document.getElementById('pre').value;
+        const cos = document.getElementById('cos').value;
         if(!nom || !pre) return alert("Falta Nombre o Precio");
         await _supabase.from('productos_almacen').upsert({
             codigo_barras: document.getElementById('cod').value || "M-" + nom.substring(0,3).toUpperCase(),
-            nombre: nom, precio: parseFloat(pre), stock: parseInt(document.getElementById('sto').value) || 0 
+            nombre: nom, 
+            precio_costo: parseFloat(cos) || 0,
+            precio: parseFloat(pre), 
+            stock: parseInt(document.getElementById('sto').value) || 0 
         }, { onConflict: 'codigo_barras' });
         alert("✅ Actualizado");
         location.reload();
