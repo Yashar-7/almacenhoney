@@ -3,15 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    
     <meta name="theme-color" content="#f39c12">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    
     <link rel="icon" type="image/png" href="almacenhoney.png">
     <link rel="apple-touch-icon" href="almacenhoney.png">
-    
-    <title>Panel Honey - Gestión</title>
+    <title>Panel Honey - Gestión PRO</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
@@ -45,7 +42,7 @@
 
     <button class="btn btn-nav" onclick="window.location.href='index.html'">🏠 VOLVER A VENTAS</button>
 
-    <h2 style="margin-top:10px;">🍯 Panel Almacén Honey</h2>
+    <h2 style="margin-top:10px;">🍯 Gestión Almacén Honey</h2>
     
     <div id="reader" style="width: 100%; border-radius: 15px; overflow: hidden; border: 2px solid var(--amarillo); margin-bottom:10px;"></div>
     <button class="btn btn-scan" onclick="iniciarEscaneo()">📷 ESCANEAR PRODUCTO</button>
@@ -56,13 +53,13 @@
         <div id="resultados-busqueda" class="search-results"></div>
         <input type="text" id="cod" readonly placeholder="Código de barras" style="background:#34495e; color:#bdc3c7;">
         
-        <label style="font-size: 0.8rem; color: var(--amarillo);">Precio Costo (Lo que pagaste):</label>
+        <label style="font-size: 0.8rem; color: var(--amarillo);">Costo (Lo que pagaste):</label>
         <input type="number" id="cos" placeholder="Costo $" step="0.01">
         
-        <label style="font-size: 0.8rem; color: var(--amarillo);">Precio Venta (Al público):</label>
+        <label style="font-size: 0.8rem; color: var(--amarillo);">Venta (Al público):</label>
         <input type="number" id="pre" placeholder="Venta $" step="0.01">
         
-        <label style="font-size: 0.8rem; color: var(--amarillo);">Cantidad en Estante:</label>
+        <label style="font-size: 0.8rem; color: var(--amarillo);">Stock:</label>
         <input type="number" id="sto" placeholder="Stock">
         
         <button class="btn btn-save" onclick="guardarProducto()">💾 GUARDAR CAMBIOS</button>
@@ -71,7 +68,7 @@
     <div class="card">
         <h3>📋 Lista de Mercadería</h3>
         <div class="capital-card">
-            💰 Capital en Stock: <b id="total-stock-pesos">$0</b>
+            💰 Valor Venta Total: <b id="total-stock-pesos">$0</b>
         </div>
         <button class="btn btn-lista" onclick="cargarListaMercaderia()">🔄 ACTUALIZAR LISTA</button>
         <div class="tabla-contenedor">
@@ -83,14 +80,14 @@
     </div>
 
     <div class="card">
-        <h3>💰 Caja y Gastos</h3>
+        <h3>💰 Caja y Rentabilidad</h3>
         <div style="display: flex; gap: 5px; margin-bottom:15px;">
             <input type="text" id="gasto-desc" placeholder="Gasto en...">
             <input type="number" id="gasto-monto" placeholder="$" style="width:100px;">
         </div>
         <button class="btn btn-gasto" onclick="guardarGasto()">🧾 ANOTAR GASTO</button>
         <hr style="border:0; border-top:1px solid #444; margin: 15px 0;">
-        <button class="btn btn-caja" onclick="verBalanceHoy()">📊 CALCULAR BALANCE HOY</button>
+        <button class="btn btn-caja" onclick="verBalanceHoy()">📊 CALCULAR GANANCIA REAL</button>
         <div id="resultado-caja">
             <div style="display: flex; justify-content: space-between;">
                 <span>Ventas: <b id="v-hoy">$0</b></span>
@@ -103,14 +100,14 @@
                 <span style="color:var(--naranja)">Trans: <b id="v-tra">$0</b></span>
             </div>
             <div style="text-align:center; margin-top:10px; border-top: 1px solid #333; padding-top:5px;">
-                <small>GANANCIA LIMPIA:</small>
+                <small>GANANCIA REAL (Venta - Costo - Gastos):</small>
                 <span id="ganancia-hoy" class="ganancia-total">$ 0.00</span>
             </div>
         </div>
     </div>
 
     <div class="card">
-        <h3>📅 Historial Semanal</h3>
+        <h3>📅 Historial Semanal (Neto)</h3>
         <div id="lista-historial"></div>
     </div>
 
@@ -188,7 +185,7 @@
             stock: parseInt(document.getElementById('sto').value) || 0 
         }, { onConflict: 'codigo_barras' });
         alert("✅ Actualizado");
-        location.reload();
+        cargarListaMercaderia();
     }
 
     async function guardarGasto() {
@@ -202,21 +199,40 @@
 
     async function verBalanceHoy() {
         let hoy = new Date(); hoy.setHours(0,0,0,0);
+        
+        // Traer ventas, gastos y productos para cruzar datos
         const { data: v } = await _supabase.from('ventas_honey').select('*').gte('fecha', hoy.toISOString());
         const { data: g } = await _supabase.from('gastos_honey').select('monto').gte('fecha', hoy.toISOString());
+        const { data: productos } = await _supabase.from('productos_almacen').select('nombre, precio_costo');
+
         let efe = v.filter(x => x.metodo_pago === 'Efectivo').reduce((s, i) => s + i.total, 0);
         let tar = v.filter(x => x.metodo_pago === 'Tarjeta').reduce((s, i) => s + i.total, 0);
         let qrr = v.filter(x => x.metodo_pago === 'QR').reduce((s, i) => s + i.total, 0);
         let tra = v.filter(x => x.metodo_pago === 'Transferencia').reduce((s, i) => s + i.total, 0);
+        
         let totV = efe + tar + qrr + tra;
         let totG = g.reduce((s, i) => s + (i.monto || 0), 0);
+
+        // CALCULO DE COSTO DE LO VENDIDO
+        let costoTotalVendido = 0;
+        v.forEach(venta => {
+            const nombresEnVenta = venta.productos.split(", ");
+            nombresEnVenta.forEach(nomProd => {
+                const infoProd = productos.find(p => p.nombre === nomProd);
+                if (infoProd) costoTotalVendido += (infoProd.precio_costo || 0);
+            });
+        });
+
+        const gananciaReal = totV - costoTotalVendido - totG;
+
         document.getElementById('v-hoy').innerText = "$ " + totV.toFixed(2);
         document.getElementById('g-hoy').innerText = "$ " + totG.toFixed(2);
         document.getElementById('v-efe').innerText = "$" + efe.toFixed(0);
         document.getElementById('v-tar').innerText = "$" + tar.toFixed(0);
         document.getElementById('v-qr').innerText = "$" + qrr.toFixed(0);
         document.getElementById('v-tra').innerText = "$" + tra.toFixed(0);
-        document.getElementById('ganancia-hoy').innerText = "$ " + (totV - totG).toFixed(2);
+        document.getElementById('ganancia-hoy').innerText = "$ " + gananciaReal.toFixed(2);
+        
         verHistorial();
     }
 
