@@ -16,6 +16,7 @@
         .btn-save { background: var(--verde); color: white; }
         .btn-gasto { background: var(--rojo); color: white; }
         .btn-caja { background: var(--naranja); color: white; }
+        .btn-lista { background: var(--azul); color: white; }
         h2, h3 { color: var(--amarillo); margin: 5px 0; }
         #resultado-caja { font-size: 0.9rem; margin-top: 10px; background: #000; padding: 12px; border-radius: 10px; }
         .ganancia-total { color: var(--verde); font-size: 1.6rem; font-weight: bold; display: block; text-align: center; margin-top: 5px; }
@@ -23,6 +24,14 @@
         .search-results { background: #1a1a1a; border-radius: 8px; max-height: 150px; overflow-y: auto; }
         .search-item { padding: 10px; border-bottom: 1px solid #333; cursor: pointer; display: flex; justify-content: space-between; font-size: 0.9rem; }
         .historial-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #444; font-size: 0.85rem; }
+        
+        /* Estilos Tabla de Mercadería */
+        .tabla-contenedor { overflow-x: auto; margin-top: 10px; background: #1a1a1a; border-radius: 10px; }
+        .tabla-inventario { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        .tabla-inventario th { background: #444; color: var(--amarillo); padding: 10px; text-align: left; position: sticky; top: 0; }
+        .tabla-inventario td { padding: 10px; border-bottom: 1px solid #333; }
+        .stock-critico { color: var(--rojo); font-weight: bold; }
+        .capital-card { background: var(--azul); padding: 10px; border-radius: 10px; margin-bottom: 10px; text-align: center; }
     </style>
 </head>
 <body>
@@ -42,6 +51,27 @@
             <input type="number" id="sto" placeholder="Stock">
         </div>
         <button class="btn btn-save" onclick="guardarProducto()">💾 GUARDAR CAMBIOS</button>
+    </div>
+
+    <div class="card">
+        <h3>📋 Mercadería en Sistema</h3>
+        <div class="capital-card">
+            💰 Valor de Estantería: <b id="total-stock-pesos">$0</b>
+        </div>
+        <button class="btn btn-lista" onclick="cargarListaMercaderia()">🔄 ACTUALIZAR LISTA</button>
+        <div class="tabla-contenedor">
+            <table class="tabla-inventario">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Precio</th>
+                        <th>Stock</th>
+                    </tr>
+                </thead>
+                <tbody id="cuerpo-tabla">
+                    </tbody>
+            </table>
+        </div>
     </div>
 
     <div class="card">
@@ -86,6 +116,9 @@
     const _supabase = supabase.createClient(SB_URL, SB_KEY);
     const scanner = new Html5Qrcode("reader");
 
+    // Al cargar la página, traer la lista automáticamente
+    window.onload = () => { cargarListaMercaderia(); };
+
     function iniciarEscaneo() {
         scanner.start({ facingMode: "environment" }, { fps: 15, qrbox: 250 }, (codigo) => {
             document.getElementById('cod').value = codigo;
@@ -118,6 +151,33 @@
         document.getElementById('nom').value = p.nombre;
         document.getElementById('pre').value = p.precio;
         document.getElementById('sto').value = p.stock;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    async function cargarListaMercaderia() {
+        const cuerpo = document.getElementById('cuerpo-tabla');
+        const txtTotal = document.getElementById('total-stock-pesos');
+        cuerpo.innerHTML = "Cargando...";
+
+        const { data, error } = await _supabase.from('productos_almacen').select('*').order('nombre', { ascending: true });
+
+        if (error) return alert("Error: " + error.message);
+
+        let html = "";
+        let sumaTotal = 0;
+
+        data.forEach(p => {
+            const esBajo = p.stock <= 3 ? 'stock-critico' : '';
+            sumaTotal += (p.precio * p.stock);
+            html += `
+                <tr onclick='cargarEnFormulario(${JSON.stringify(p)})'>
+                    <td>${p.nombre}</td>
+                    <td>$${p.precio}</td>
+                    <td class="${esBajo}">${p.stock}</td>
+                </tr>`;
+        });
+        cuerpo.innerHTML = html;
+        txtTotal.innerText = "$ " + sumaTotal.toLocaleString();
     }
 
     async function guardarProducto() {
@@ -130,7 +190,7 @@
             codigo_barras: cod || "M-" + nom.substring(0,3).toUpperCase(),
             nombre: nom, precio: parseFloat(pre), stock: parseInt(sto) || 0 
         }, { onConflict: 'codigo_barras' });
-        alert("✅ Actualizado");
+        alert("✅ Producto Guardado/Actualizado");
         location.reload();
     }
 
@@ -184,4 +244,4 @@
     }
 </script>
 </body>
-                                                          </html>
+</html>
