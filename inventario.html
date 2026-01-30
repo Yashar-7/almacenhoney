@@ -169,7 +169,6 @@
         if (data) {
             cargarEnFormulario(data);
         } else {
-            // Si no existe, solo dejamos el código para crear uno nuevo
             document.getElementById('nom').value = "";
             document.getElementById('cos').value = "";
             document.getElementById('pre').value = "";
@@ -223,13 +222,19 @@
         
         if(!nom || !pre) return alert("Falta Nombre o Precio");
         
-        const { error } = await _supabase.from('productos_almacen').upsert({
+        // OBJETO DE DATOS
+        const datos = {
             codigo_barras: cod || "M-" + nom.substring(0,3).toUpperCase() + Math.floor(Math.random()*100),
             nombre: nom, 
             precio_costo: parseFloat(document.getElementById('cos').value) || 0,
             precio: parseFloat(pre), 
             stock: parseInt(document.getElementById('sto').value) || 0 
-        });
+        };
+
+        // UPSERT CON RESOLUCIÓN DE CONFLICTO (EVITA ERROR DE LLAVE DUPLICADA)
+        const { error } = await _supabase
+            .from('productos_almacen')
+            .upsert(datos, { onConflict: 'codigo_barras' });
 
         if(error) {
             alert("Error al guardar: " + error.message);
@@ -239,8 +244,6 @@
             cargarListaMercaderia();
         }
     }
-
-    // --- Mantenemos tus funciones de visualización y balance igual ---
 
     async function cargarListaMercaderia() {
         const cuerpo = document.getElementById('cuerpo-tabla');
@@ -330,4 +333,4 @@
     }
 </script>
 </body>
-</html>
+    </html>
