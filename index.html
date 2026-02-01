@@ -57,7 +57,7 @@
     <div class="login-card">
         <h2 style="color: var(--amarillo); margin: 0 0 15px 0; font-size: 1.2rem;">ACCESO PANEL HONEY</h2>
         <input type="password" id="passCode" placeholder="Ingresa PIN" style="background: #eee; color: #333;">
-        <button class="btn m-efectivo" onclick="verificarAcceso()">ENTRAR</button>
+        <button class="btn m-efectivo" id="btnEntrar" onclick="verificarAcceso()">ENTRAR</button>
         <p id="errorMsg" style="color: var(--rojo); font-size: 0.8rem; display: none; margin-top: 10px;">PIN Incorrecto</p>
     </div>
 </div>
@@ -66,7 +66,7 @@
     <div class="header">
         <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 10px;">
             <span id="roleDisplay" class="badge-role">ROL: -</span>
-            <button onclick="location.reload()" style="background:none; border:1px solid var(--amarillo); color:var(--amarillo); font-size:0.6rem; padding:2px 5px; border-radius:5px;">SALIR</button>
+            <button onclick="salir()" style="background:none; border:1px solid var(--amarillo); color:var(--amarillo); font-size:0.6rem; padding:2px 5px; border-radius:5px;">SALIR</button>
         </div>
         <img src="almacenhoney.png" alt="Logo Honey">
         <h1>ALMACÉN HONEY</h1>
@@ -102,27 +102,54 @@
     const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2cHVycHZiaXVqaGNiaXVncmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3NDgzMTUsImV4cCI6MjA4MzMyNDMxNX0.AivKJ0_N0z_4T4vLNfUcE2hepJ1XXOO8-4fSA3PJXdc";
     const _supabase = supabase.createClient(SB_URL, SB_KEY);
 
-    const PINES = { "180686": "ADMIN", "5678": "VENDEDOR" };
     let currentUserRole = null;
     let carrito = [];
     let total = 0;
     const scanner = new Html5Qrcode("reader");
 
-    function verificarAcceso() {
+    /** Verifica el PIN contra la tabla 'usuarios' en Supabase (columnas: pin, rol). Retorna { rol } o null. */
+    async function verificarPinEnSupabase(pin) {
+        if (!pin || !pin.trim()) return null;
+        const { data, error } = await _supabase
+            .from('usuarios')
+            .select('rol')
+            .eq('pin', pin.trim())
+            .maybeSingle();
+        if (error || !data) return null;
+        return { rol: data.rol };
+    }
+
+    async function verificarAcceso() {
         const pin = document.getElementById('passCode').value;
-        if (PINES[pin]) {
-            currentUserRole = PINES[pin];
-            localStorage.setItem('honey_role', currentUserRole); // Guardamos para el inventario
-            document.getElementById('loginOverlay').style.display = 'none';
-            document.getElementById('appContent').style.display = 'block';
-            document.getElementById('roleDisplay').innerText = "ROL: " + currentUserRole;
-        } else {
-            document.getElementById('errorMsg').style.display = 'block';
+        document.getElementById('errorMsg').style.display = 'none';
+        const btn = document.getElementById('btnEntrar');
+        btn.disabled = true;
+        btn.textContent = 'Verificando...';
+        try {
+            const resultado = await verificarPinEnSupabase(pin);
+            if (resultado && (resultado.rol === 'ADMIN' || resultado.rol === 'VENDEDOR')) {
+                currentUserRole = resultado.rol;
+                sessionStorage.setItem('honey_pin', pin.trim());
+                sessionStorage.setItem('honey_role', resultado.rol);
+                document.getElementById('loginOverlay').style.display = 'none';
+                document.getElementById('appContent').style.display = 'block';
+                document.getElementById('roleDisplay').innerText = "ROL: " + currentUserRole;
+            } else {
+                document.getElementById('errorMsg').style.display = 'block';
+            }
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'ENTRAR';
         }
     }
 
+    function salir() {
+        sessionStorage.removeItem('honey_pin');
+        sessionStorage.removeItem('honey_role');
+        location.reload();
+    }
+
     function irAInventario() {
-        // Pasamos el rol al inventario para que también esté protegido
         window.location.href = 'inventario.html';
     }
 
