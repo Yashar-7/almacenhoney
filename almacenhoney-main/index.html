@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#f39c12">
+    <title>Almacén Honey - Punto de Venta Seguro</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --naranja: #f39c12; --amarillo: #f1c40f; --negro: #1a1a1a; --gris: #2c3e50; --rojo: #e74c3c; }
+        body { font-family: 'Arial', sans-serif; background: var(--negro); color: white; margin: 0; padding: 10px; }
+        
+        /* PANTALLA DE BLOQUEO */
+        #loginOverlay { position: fixed; inset: 0; background: var(--negro); z-index: 2000; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+        .login-card { background: var(--gris); padding: 30px; border-radius: 20px; border-top: 5px solid var(--amarillo); width: 280px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        
+        .header { text-align: center; border-bottom: 4px solid var(--amarillo); padding-bottom: 10px; margin-bottom: 15px; }
+        .header img { height: 70px; width: auto; margin-bottom: 5px; }
+        .header h1 { color: var(--amarillo); margin: 0; font-size: 1.5rem; letter-spacing: 1px; }
+
+        #reader { width: 100%; border-radius: 15px; border: 3px solid var(--naranja); background: #000; overflow: hidden; }
+        .carrito { background: var(--gris); border-radius: 15px; padding: 15px; margin-top: 15px; min-height: 80px; max-height: 180px; overflow-y: auto; }
+        .item { display: flex; justify-content: space-between; border-bottom: 1px solid #444; padding: 8px 0; font-size: 0.9rem; }
+        
+        .seccion-pago { background: var(--naranja); color: black; border-radius: 15px; padding: 15px; margin-top: 15px; text-align: center; }
+        .total-grande { font-size: 2.2rem; font-weight: bold; margin: 5px 0; }
+        
+        .metodos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        .btn-m { padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: white; font-size: 0.8rem; }
+        .m-efectivo { background: #27ae60; }
+        .m-tarjeta { background: #2980b9; }
+        .m-qr { background: #8e44ad; }
+        .m-transfe { background: #d35400; }
+
+        .btn { width: 100%; padding: 15px; border: none; border-radius: 12px; font-weight: bold; font-size: 1rem; cursor: pointer; margin-top: 10px; }
+        .btn-scan { background: var(--amarillo); color: black; }
+        
+        input { width: 90%; padding: 12px; font-size: 1.1rem; border-radius: 10px; border: none; text-align: center; margin-bottom: 10px; }
+
+        .btn-float { 
+            position: fixed; bottom: 20px; right: 20px; 
+            background: var(--gris); color: var(--amarillo); 
+            width: 55px; height: 55px; border-radius: 50%; 
+            display: flex; align-items: center; justify-content: center; 
+            font-size: 1.3rem; text-decoration: none; border: 2px solid var(--amarillo);
+            z-index: 1000; box-shadow: 0px 4px 10px rgba(0,0,0,0.5);
+        }
+
+        .badge-role { font-size: 0.7rem; background: var(--amarillo); color: black; padding: 2px 8px; border-radius: 10px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div id="loginOverlay">
+    <img src="almacenhoney.png" alt="Logo" style="width: 120px; margin-bottom: 20px;">
+    <div class="login-card">
+        <h2 style="color: var(--amarillo); margin: 0 0 15px 0; font-size: 1.2rem;">ACCESO PANEL HONEY</h2>
+        <input type="password" id="passCode" placeholder="Ingresa PIN" style="background: #eee; color: #333;">
+        <button class="btn m-efectivo" id="btnEntrar" onclick="verificarAcceso()">ENTRAR</button>
+        <p id="errorMsg" style="color: var(--rojo); font-size: 0.8rem; display: none; margin-top: 10px;">PIN Incorrecto</p>
+    </div>
+</div>
+
+<div id="appContent" style="display: none;">
+    <div class="header">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 10px;">
+            <span id="roleDisplay" class="badge-role">ROL: -</span>
+            <button onclick="salir()" style="background:none; border:1px solid var(--amarillo); color:var(--amarillo); font-size:0.6rem; padding:2px 5px; border-radius:5px;">SALIR</button>
+        </div>
+        <img src="almacenhoney.png" alt="Logo Honey">
+        <h1>ALMACÉN HONEY</h1>
+    </div>
+
+    <div onclick="irAInventario()" class="btn-float">📦</div>
+
+    <div id="reader"></div>
+    <button class="btn btn-scan" onclick="iniciarEscaneo()">➕ ESCANEAR PRODUCTO</button>
+
+    <div class="carrito" id="lista-productos">
+        <p id="mensaje-vacio" style="text-align:center; color: #bdc3c7;">El carrito está vacío</p>
+    </div>
+
+    <div class="seccion-pago">
+        <div style="font-size: 0.8rem; font-weight: bold;">TOTAL A COBRAR</div>
+        <div class="total-grande" id="total-final">$ 0.00</div>
+        
+        <input type="number" id="paga-con" placeholder="¿Con cuánto paga?" oninput="calcularVuelto()">
+        <div style="font-weight:bold; margin-top:5px; font-size: 0.9rem;">VUELTO: <span id="vuelto">$ 0.00</span></div>
+
+        <div class="metodos-grid">
+            <button class="btn-m m-efectivo" onclick="finalizarVenta('Efectivo')">💵 EFECTIVO</button>
+            <button class="btn-m m-tarjeta" onclick="finalizarVenta('Tarjeta')">💳 TARJETA</button>
+            <button class="btn-m m-qr" onclick="finalizarVenta('QR')">📱 QR / MP</button>
+            <button class="btn-m m-transfe" onclick="finalizarVenta('Transferencia')">🏦 TRANSF.</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const SB_URL = "https://svpurpvbiujhcbiugrkh.supabase.co";
+    const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2cHVycHZiaXVqaGNiaXVncmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3NDgzMTUsImV4cCI6MjA4MzMyNDMxNX0.AivKJ0_N0z_4T4vLNfUcE2hepJ1XXOO8-4fSA3PJXdc";
+    const _supabase = supabase.createClient(SB_URL, SB_KEY);
+
+    let currentUserRole = null;
+    let carrito = [];
+    let total = 0;
+    const scanner = new Html5Qrcode("reader");
+
+    /** Verifica el PIN contra la tabla 'usuarios' en Supabase (columnas: pin, rol). Retorna { rol } o null. */
+    async function verificarPinEnSupabase(pin) {
+        if (!pin || !pin.trim()) return null;
+        const { data, error } = await _supabase
+            .from('usuarios')
+            .select('rol')
+            .eq('pin', pin.trim())
+            .maybeSingle();
+        if (error || !data) return null;
+        return { rol: data.rol };
+    }
+
+    async function verificarAcceso() {
+        const pin = document.getElementById('passCode').value;
+        document.getElementById('errorMsg').style.display = 'none';
+        const btn = document.getElementById('btnEntrar');
+        btn.disabled = true;
+        btn.textContent = 'Verificando...';
+        try {
+            const resultado = await verificarPinEnSupabase(pin);
+            if (resultado && (resultado.rol === 'ADMIN' || resultado.rol === 'VENDEDOR')) {
+                currentUserRole = resultado.rol;
+                sessionStorage.setItem('honey_pin', pin.trim());
+                sessionStorage.setItem('honey_role', resultado.rol);
+                document.getElementById('loginOverlay').style.display = 'none';
+                document.getElementById('appContent').style.display = 'block';
+                document.getElementById('roleDisplay').innerText = "ROL: " + currentUserRole;
+            } else {
+                document.getElementById('errorMsg').style.display = 'block';
+            }
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'ENTRAR';
+        }
+    }
+
+    function salir() {
+        sessionStorage.removeItem('honey_pin');
+        sessionStorage.removeItem('honey_role');
+        location.reload();
+    }
+
+    function irAInventario() {
+        window.location.href = 'inventario.html';
+    }
+
+    function iniciarEscaneo() {
+        scanner.start({ facingMode: "environment" }, { fps: 15, qrbox: { width: 250, height: 150 } }, (codigo) => {
+            scanner.stop();
+            buscarProducto(codigo);
+        }).catch(err => alert("Error de cámara: " + err));
+    }
+
+    async function buscarProducto(codigo) {
+        const { data, error } = await _supabase.from('productos_almacen').select('*').eq('codigo_barras', codigo).single();
+        if (error || !data) { alert("Producto no registrado."); return; }
+        carrito.push({ nombre: data.nombre, precio: parseFloat(data.precio), codigo: data.codigo_barras, stock_actual: data.stock });
+        actualizarPantalla();
+    }
+
+    function actualizarPantalla() {
+        const lista = document.getElementById('lista-productos');
+        const mensajeVacio = document.getElementById('mensaje-vacio');
+        lista.innerHTML = "";
+        lista.appendChild(mensajeVacio);
+        total = 0;
+        if (carrito.length === 0) {
+            mensajeVacio.style.display = 'block';
+        } else {
+            mensajeVacio.style.display = 'none';
+            carrito.forEach((prod, index) => {
+                total += prod.precio;
+                lista.innerHTML += `<div class="item">
+                    <span>${prod.nombre}</span>
+                    <div>
+                        <span>$${prod.precio.toFixed(2)}</span>
+                        <button onclick="eliminarDelCarrito(${index})" style="background:none; border:none; color:var(--rojo); margin-left:10px;">✕</button>
+                    </div>
+                </div>`;
+            });
+        }
+        document.getElementById('total-final').innerText = `$ ${total.toFixed(2)}`;
+        calcularVuelto();
+    }
+
+    function eliminarDelCarrito(index) {
+        carrito.splice(index, 1);
+        actualizarPantalla();
+    }
+
+    function calcularVuelto() {
+        const pagaCon = document.getElementById('paga-con').value;
+        const vuelto = pagaCon - total;
+        document.getElementById('vuelto').innerText = (vuelto >= 0) ? `$ ${vuelto.toFixed(2)}` : "Falta dinero";
+    }
+
+    async function finalizarVenta(metodo) {
+        if(total === 0) return alert("Carrito vacío");
+        const resumenProductos = carrito.map(p => p.nombre).join(", ");
+        try {
+            const { error: errorVenta } = await _supabase
+                .from('ventas_honey')
+                .insert([{ productos: resumenProductos, total: total, metodo_pago: metodo }]);
+            if (errorVenta) throw errorVenta;
+
+            for (const item of carrito) {
+                const nuevoStock = (item.stock_actual > 0) ? item.stock_actual - 1 : 0;
+                await _supabase.from('productos_almacen').update({ stock: nuevoStock }).eq('codigo_barras', item.codigo);
+            }
+
+            alert("✅ Venta procesada por: " + currentUserRole);
+            carrito = [];
+            document.getElementById('paga-con').value = "";
+            actualizarPantalla();
+        } catch (err) { alert("Error: " + err.message); }
+    }
+</script>
+</body>
+</html>
