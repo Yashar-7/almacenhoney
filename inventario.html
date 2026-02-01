@@ -141,15 +141,53 @@
     const _supabase = supabase.createClient(SB_URL, SB_KEY);
     const scanner = new Html5Qrcode("reader");
 
-    const currentUserRole = localStorage.getItem('honey_role') || "VENDEDOR";
+    /** Rol actual en memoria (se establece tras verificar contra Supabase). No confiar solo en almacenamiento. */
+    let currentUserRole = null;
 
-    window.onload = () => { 
+    /** Verifica el PIN en la tabla 'usuarios' de Supabase. Retorna el rol ('ADMIN'/'VENDEDOR') o null. */
+    async function verificarPinEnSupabase(pin) {
+        if (!pin || !pin.trim()) return null;
+        const { data, error } = await _supabase
+            .from('usuarios')
+            .select('rol')
+            .eq('pin', pin.trim())
+            .maybeSingle();
+        if (error || !data) return null;
+        return (data.rol === 'ADMIN' || data.rol === 'VENDEDOR') ? data.rol : null;
+    }
+
+    /** Re-verifica el rol antes de una acción sensible. Retorna 'ADMIN', 'VENDEDOR' o null. */
+    async function verificarRolActual() {
+        const pin = sessionStorage.getItem('honey_pin');
+        if (!pin) return null;
+        return await verificarPinEnSupabase(pin);
+    }
+
+    /** Comprueba la sesión al cargar la página: PIN en sessionStorage y validación en Supabase. */
+    async function verificarSesion() {
+        const pin = sessionStorage.getItem('honey_pin');
+        if (!pin) {
+            sessionStorage.removeItem('honey_role');
+            window.location.href = 'index.html';
+            return;
+        }
+        const rol = await verificarPinEnSupabase(pin);
+        if (!rol) {
+            sessionStorage.removeItem('honey_pin');
+            sessionStorage.removeItem('honey_role');
+            window.location.href = 'index.html';
+            return;
+        }
+        currentUserRole = rol;
+        sessionStorage.setItem('honey_role', rol);
         aplicarSeguridad();
-        cargarListaMercaderia(); 
-    };
+        cargarListaMercaderia();
+    }
+
+    window.onload = () => { verificarSesion(); };
 
     function aplicarSeguridad() {
-        document.getElementById('roleBadge').innerText = "ROL: " + currentUserRole;
+        document.getElementById('roleBadge').innerText = "ROL: " + (currentUserRole || '—');
         if (currentUserRole === "ADMIN") {
             document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
         }
@@ -198,6 +236,18 @@
     }
 
     async function eliminarProducto() {
+        const rol = await verificarRolActual();
+        if (!rol) {
+            alert('Sesión expirada o no válida.');
+            sessionStorage.removeItem('honey_pin');
+            sessionStorage.removeItem('honey_role');
+            window.location.href = 'index.html';
+            return;
+        }
+        if (rol !== 'ADMIN') {
+            alert('No autorizado. Solo ADMIN puede eliminar productos.');
+            return;
+        }
         const codigo = document.getElementById('cod').value;
         const nombre = document.getElementById('nom').value;
         if(!codigo) return;
@@ -215,7 +265,18 @@
     }
 
     async function guardarProducto() {
-        if(currentUserRole !== "ADMIN") return;
+        const rol = await verificarRolActual();
+        if (!rol) {
+            alert('Sesión expirada o no válida.');
+            sessionStorage.removeItem('honey_pin');
+            sessionStorage.removeItem('honey_role');
+            window.location.href = 'index.html';
+            return;
+        }
+        if (rol !== 'ADMIN') {
+            alert('No autorizado. Solo ADMIN puede guardar o editar productos.');
+            return;
+        }
         const cod = document.getElementById('cod').value;
         const nom = document.getElementById('nom').value;
         const pre = document.getElementById('pre').value;
@@ -242,6 +303,36 @@
             alert("✅ Guardado correctamente");
             limpiarFormulario();
             cargarListaMercaderia();
+        }
+    }
+
+    async function guardarGasto() {
+        const rol = await verificarRolActual();
+        if (!rol) {
+            alert('Sesión expirada o no válida.');
+            sessionStorage.removeItem('honey_pin');
+            sessionStorage.removeItem('honey_role');
+            window.location.href = 'index.html';
+            return;
+        }
+        if (rol !== 'ADMIN') {
+            alert('No autorizado. Solo ADMIN puede registrar gastos.');
+            return;
+        }
+        const desc = document.getElementById('gasto-desc').value?.trim();
+        const monto = parseFloat(document.getElementById('gasto-monto').value);
+        if (!desc || isNaN(monto) || monto <= 0) {
+            alert('Indica descripción y monto válido.');
+            return;
+        }
+        const { error } = await _supabase.from('gastos_honey').insert([{ descripcion: desc, monto: monto, fecha: new Date().toISOString() }]);
+        if (error) {
+            alert('Error al guardar gasto: ' + error.message);
+        } else {
+            alert('✅ Gasto registrado');
+            document.getElementById('gasto-desc').value = '';
+            document.getElementById('gasto-monto').value = '';
+            verBalanceHoy();
         }
     }
 
@@ -285,7 +376,8 @@
         document.getElementById('v-qr').innerText = "$" + qrr.toFixed(0);
         document.getElementById('v-tra').innerText = "$" + tra.toFixed(0);
 
-        if (currentUserRole === "ADMIN") {
+        const rolAdmin = await verificarRolActual();
+        if (rolAdmin === "ADMIN") {
             const { data: g } = await _supabase.from('gastos_honey').select('monto').gte('fecha', hoy.toISOString());
             const { data: productos } = await _supabase.from('productos_almacen').select('nombre, precio_costo');
             let totG = g.reduce((s, i) => s + (i.monto || 0), 0);
@@ -306,7 +398,18 @@
     }
 
     async function exportarVentasExcel() {
-        if(currentUserRole !== "ADMIN") return;
+        const rol = await verificarRolActual();
+        if (!rol) {
+            alert('Sesión expirada o no válida.');
+            sessionStorage.removeItem('honey_pin');
+            sessionStorage.removeItem('honey_role');
+            window.location.href = 'index.html';
+            return;
+        }
+        if (rol !== "ADMIN") {
+            alert('No autorizado. Solo ADMIN puede exportar ventas.');
+            return;
+        }
         const { data: ventas } = await _supabase.from('ventas_honey').select('*').order('fecha', { ascending: false });
         const hoja = XLSX.utils.json_to_sheet(ventas.map(v => ({ Fecha: new Date(v.fecha).toLocaleString(), Productos: v.productos, Total: v.total, Metodo: v.metodo_pago })));
         const libro = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(libro, hoja, "Ventas");
@@ -314,7 +417,8 @@
     }
 
     async function verHistorial() {
-        if(currentUserRole !== "ADMIN") return;
+        const rol = await verificarRolActual();
+        if (rol !== "ADMIN") return;
         const lista = document.getElementById('lista-historial');
         lista.innerHTML = "Cargando...";
         let hoy = new Date(); let html = "";
