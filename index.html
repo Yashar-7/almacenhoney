@@ -58,7 +58,7 @@
         <h2 style="color: var(--amarillo); margin: 0 0 15px 0; font-size: 1.2rem;">ACCESO PANEL HONEY</h2>
         <input type="password" id="passCode" placeholder="Ingresa PIN" style="background: #eee; color: #333;">
         <button class="btn m-efectivo" id="btnEntrar" onclick="verificarAcceso()">ENTRAR</button>
-        <p id="errorMsg" style="color: var(--rojo); font-size: 0.8rem; display: none; margin-top: 10px;">PIN Incorrecto</p>
+        <p id="errorMsg" style="color: var(--rojo); font-size: 0.8rem; display: none; margin-top: 10px;">PIN Incorrecto o Error de Conexión</p>
     </div>
 </div>
 
@@ -100,14 +100,15 @@
 <script>
     const SB_URL = "https://svpurpvbiujhcbiugrkh.supabase.co";
     const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2cHVycHZiaXVqaGNiaXVncmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3NDgzMTUsImV4cCI6MjA4MzMyNDMxNX0.AivKJ0_N0z_4T4vLNfUcE2hepJ1XXOO8-4fSA3PJXdc";
-    const _supabase = supabase.createClient(SB_URL, SB_KEY);
+    
+    // Inicialización corregida
+    const _supabase = window.supabase.createClient(SB_URL, SB_KEY);
 
     let currentUserRole = null;
     let carrito = [];
     let total = 0;
     const scanner = new Html5Qrcode("reader");
 
-    /** Verifica el PIN contra la tabla 'usuarios' en Supabase (columnas: pin, rol). Retorna { rol } o null. */
     async function verificarPinEnSupabase(pin) {
         if (!pin || !pin.trim()) return null;
         const { data, error } = await _supabase
@@ -115,16 +116,24 @@
             .select('rol')
             .eq('pin', pin.trim())
             .maybeSingle();
-        if (error || !data) return null;
-        return { rol: data.rol };
+        
+        if (error) {
+            console.error("Error Supabase:", error);
+            return null;
+        }
+        return data;
     }
 
     async function verificarAcceso() {
-        const pin = document.getElementById('passCode').value;
-        document.getElementById('errorMsg').style.display = 'none';
+        const pinInput = document.getElementById('passCode');
+        const pin = pinInput.value;
+        const errorMsg = document.getElementById('errorMsg');
         const btn = document.getElementById('btnEntrar');
+
+        errorMsg.style.display = 'none';
         btn.disabled = true;
         btn.textContent = 'Verificando...';
+
         try {
             const resultado = await verificarPinEnSupabase(pin);
             if (resultado && (resultado.rol === 'ADMIN' || resultado.rol === 'VENDEDOR')) {
@@ -135,8 +144,11 @@
                 document.getElementById('appContent').style.display = 'block';
                 document.getElementById('roleDisplay').innerText = "ROL: " + currentUserRole;
             } else {
-                document.getElementById('errorMsg').style.display = 'block';
+                errorMsg.style.display = 'block';
+                pinInput.value = "";
             }
+        } catch (err) {
+            alert("Error de red.");
         } finally {
             btn.disabled = false;
             btn.textContent = 'ENTRAR';
@@ -144,8 +156,7 @@
     }
 
     function salir() {
-        sessionStorage.removeItem('honey_pin');
-        sessionStorage.removeItem('honey_role');
+        sessionStorage.clear();
         location.reload();
     }
 
@@ -224,5 +235,5 @@
         } catch (err) { alert("Error: " + err.message); }
     }
 </script>
-</body>
+</body>      
 </html>
