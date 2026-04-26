@@ -601,7 +601,7 @@
 
             const fecha = new Date().toLocaleDateString('es-AR');
             const nombreLocal = (perfilNegocio.nombre_local || "ALMACÉN HONEY").toUpperCase();
-            const mensaje = `📊 *X-REPORT DIARIO* - ${fecha}\n🏪 *${nombreLocal}*\n\n💰 *Ventas Totales:* ${formatoMoneda(totalVentas)}\n📈 *Ganancia Real:* ${formatoMoneda(gananciaReal)}\n\n💳 *Desglose de caja:*\n• Efectivo: ${formatoMoneda(efectivo)}\n• QR: ${formatoMoneda(qr)}\n• Tarjeta: ${formatoMoneda(tarjeta)}`;
+            const mensaje = `📊 *X-REPORT DIARIO*\n📅 ${fecha}\n🏪 *${nombreLocal}*\n\n💰 *Ventas Totales:* ${formatoMoneda(totalVentas)}\n📈 *Ganancia Real:* ${formatoMoneda(gananciaReal)}\n\n💳 *Desglose de caja:*\n• Efectivo: ${formatoMoneda(efectivo)}\n• QR: ${formatoMoneda(qr)}\n• Tarjeta: ${formatoMoneda(tarjeta)}\n\n✅ Cierre diario generado correctamente.`;
 
             const mensajeCodificado = encodeURIComponent(mensaje);
             window.open(`https://wa.me/?text=${mensajeCodificado}`, "_blank");

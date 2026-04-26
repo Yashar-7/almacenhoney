@@ -168,12 +168,33 @@
             gap: 8px;
             margin-top: 8px;
         }
+        .modal-row-col {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 8px;
+        }
         .modal-select {
             width: 100%;
             padding: 10px;
             border-radius: 8px;
             border: none;
             font-size: 0.95rem;
+        }
+        .modal-empty {
+            display: none;
+            font-size: 0.8rem;
+            color: #fca5a5;
+            border: 1px solid rgba(252, 165, 165, 0.5);
+            border-radius: 8px;
+            padding: 8px;
+            background: rgba(127, 29, 29, 0.2);
+        }
+        .btn-categorizar {
+            background: rgba(251, 191, 36, 0.2);
+            color: #fde68a;
+            border: 1px solid #fbbf24;
+            box-shadow: 0 0 10px rgba(251, 191, 36, 0.45);
         }
         .btn-modal-cancel {
             background: #4b5563;
@@ -184,6 +205,19 @@
             color: white;
             border: 1px solid #7ef9ff;
             box-shadow: 0 0 10px rgba(126, 249, 255, 0.45);
+        }
+        .contador-faltantes {
+            display: none;
+            margin: 8px 0 4px 0;
+            padding: 8px 10px;
+            border-radius: 10px;
+            border: 1px solid #ff3b3b;
+            color: #ffb4b4;
+            background: rgba(127, 29, 29, 0.25);
+            box-shadow: 0 0 12px rgba(255, 59, 59, 0.36);
+            font-size: 0.85rem;
+            font-weight: bold;
+            text-align: center;
         }
         .capital-card { background: var(--azul); padding: 10px; border-radius: 10px; margin-bottom: 10px; text-align: center; }
         .badge-role { background: var(--amarillo); color: black; padding: 2px 10px; border-radius: 10px; font-size: 0.7rem; font-weight: bold; }
@@ -218,6 +252,8 @@
         
         <label style="font-size: 0.8rem; color: var(--amarillo);">Stock Actual:</label>
         <input type="number" id="sto" placeholder="Cantidad en stock">
+        <label style="font-size: 0.8rem; color: var(--amarillo);">Categoría:</label>
+        <input type="text" id="cat" placeholder="Ej: Bebidas, Limpieza, Almacén">
         
         <div style="display: flex; gap: 10px;">
             <button class="btn btn-save" onclick="guardarProducto()">💾 GUARDAR / EDITAR</button>
@@ -236,6 +272,7 @@
             <button class="btn btn-ajuste admin-only" onclick="abrirModalAjustePrecios()">⚡ AJUSTE DE PRECIOS</button>
             <button id="btn-ver-agotados" class="btn btn-agotados" onclick="toggleFiltroAgotados()">🚨 VER AGOTADOS</button>
         </div>
+        <div id="contador-faltantes" class="contador-faltantes">🚨 0 productos con stock crítico</div>
         <div class="tabla-contenedor">
             <table class="tabla-inventario">
                 <thead>
@@ -298,6 +335,10 @@
                 <option value="categoria">Categoría específica</option>
             </select>
             <select id="ajuste-categoria" class="modal-select" style="display:none; margin-top:8px;"></select>
+            <div id="modal-categorias-empty" class="modal-empty">No hay categorías registradas aún.</div>
+            <div id="modal-categorias-action" class="modal-row-col" style="display:none;">
+                <button class="btn btn-categorizar" onclick="irACategorizarProductos()">Ir a categorizar productos</button>
+            </div>
             <div id="ajuste-simulacion" class="simulacion-box">Ejemplo: Producto de $1,000.00 -> pasará a $1,000.00</div>
             <div class="modal-row">
                 <button class="btn btn-modal-cancel" onclick="cerrarModalAjustePrecios()">Cancelar</button>
@@ -341,13 +382,14 @@
         return 'stock-ok';
     }
 
-    function abrirModalAjustePrecios() {
+    async function abrirModalAjustePrecios() {
         if (currentUserRole !== "ADMIN") {
             showToast('No autorizado. Solo ADMIN puede ajustar precios.', 'error', 2600);
             return;
         }
         document.getElementById('ajuste-porcentaje').value = '';
         document.getElementById('ajuste-alcance').value = 'todos';
+        await cargarCategoriasUnicasDesdeBD();
         recargarCategoriasModal();
         onCambioAlcanceAjuste();
         actualizarSimulacionAjuste();
@@ -360,20 +402,36 @@
 
     function recargarCategoriasModal() {
         const sel = document.getElementById('ajuste-categoria');
+        const empty = document.getElementById('modal-categorias-empty');
+        const action = document.getElementById('modal-categorias-action');
         sel.innerHTML = '';
         if (!existeColumnaCategoria || categoriasCache.length === 0) {
             const opt = document.createElement('option');
             opt.value = '';
             opt.textContent = 'Sin categorías disponibles';
             sel.appendChild(opt);
+            empty.style.display = 'block';
+            action.style.display = 'flex';
             return;
         }
+        empty.style.display = 'none';
+        action.style.display = 'none';
         categoriasCache.forEach(cat => {
             const opt = document.createElement('option');
             opt.value = cat;
             opt.textContent = cat;
             sel.appendChild(opt);
         });
+    }
+
+    function irACategorizarProductos() {
+        cerrarModalAjustePrecios();
+        const campoCategoria = document.getElementById('cat');
+        if (campoCategoria) {
+            campoCategoria.focus();
+            campoCategoria.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        showToast('Asigna una categoría y guarda el producto.', 'info', 2300);
     }
 
     function onCambioAlcanceAjuste() {
@@ -536,6 +594,7 @@
             document.getElementById('cos').value = "";
             document.getElementById('pre').value = "";
             document.getElementById('sto').value = "";
+            document.getElementById('cat').value = "";
             document.getElementById('btn-eliminar').style.display = "none";
         }
     }
@@ -547,6 +606,7 @@
         document.getElementById('cos').value = p.precio_costo || 0;
         document.getElementById('pre').value = p.precio;
         document.getElementById('sto').value = p.stock;
+        document.getElementById('cat').value = p.categoria || "";
         document.getElementById('btn-eliminar').style.display = "block";
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -557,6 +617,7 @@
         document.getElementById('cos').value = "";
         document.getElementById('pre').value = "";
         document.getElementById('sto').value = "";
+        document.getElementById('cat').value = "";
         document.getElementById('btn-eliminar').style.display = "none";
     }
 
@@ -605,6 +666,7 @@
         const cod = document.getElementById('cod').value;
         const nom = document.getElementById('nom').value;
         const pre = document.getElementById('pre').value;
+        const cat = document.getElementById('cat').value?.trim();
         
         if(!nom || !pre) return showToast("Falta Nombre o Precio", "error");
         
@@ -614,7 +676,8 @@
             nombre: nom, 
             precio_costo: parseFloat(document.getElementById('cos').value) || 0,
             precio: parseFloat(pre), 
-            stock: parseInt(document.getElementById('sto').value) || 0 
+            stock: parseInt(document.getElementById('sto').value) || 0,
+            categoria: cat || null
         };
 
         // UPSERT CON RESOLUCIÓN DE CONFLICTO (EVITA ERROR DE LLAVE DUPLICADA)
@@ -671,14 +734,35 @@
         }
         productosCache = data || [];
         existeColumnaCategoria = productosCache.length > 0 ? Object.prototype.hasOwnProperty.call(productosCache[0], 'categoria') : false;
-        categoriasCache = existeColumnaCategoria
-            ? [...new Set(productosCache.map(p => p.categoria).filter(Boolean))].sort((a, b) => a.localeCompare(b))
-            : [];
+        await cargarCategoriasUnicasDesdeBD();
         renderTablaInventario();
+    }
+
+    async function cargarCategoriasUnicasDesdeBD() {
+        if (!existeColumnaCategoria) {
+            categoriasCache = [];
+            return;
+        }
+        const { data, error } = await _supabase
+            .from('productos_almacen')
+            .select('categoria')
+            .not('categoria', 'is', null);
+        if (error) {
+            categoriasCache = [];
+            return;
+        }
+        categoriasCache = [...new Set((data || []).map(x => (x.categoria || '').trim()).filter(Boolean))]
+            .sort((a, b) => a.localeCompare(b));
     }
 
     function renderTablaInventario() {
         const cuerpo = document.getElementById('cuerpo-tabla');
+        const contador = document.getElementById('contador-faltantes');
+        const criticosCount = productosCache.filter(p => Number(p.stock || 0) < 5).length;
+        if (contador) {
+            contador.textContent = `🚨 ${criticosCount} productos con stock crítico`;
+            contador.style.display = (filtroAgotadosActivo || criticosCount > 0) ? 'block' : 'none';
+        }
         const listaBase = filtroAgotadosActivo
             ? productosCache.filter(p => Number(p.stock || 0) < 5)
             : productosCache;
