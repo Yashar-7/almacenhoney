@@ -3,75 +3,125 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#0f172a">
-    <title>Honey Auth - Acceso Seguro</title>
+    <meta name="theme-color" content="#0b1020">
+    <title>Smart Tech - Acceso Seguro</title>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
-        :root { --negro: #0a0f1f; --gris: #111827; --cian: #22d3ee; --violeta: #8b5cf6; --rojo: #ff3b3b; --verde: #39ff88; }
+        :root {
+            --bg: #090f1d;
+            --card: rgba(19, 29, 47, 0.78);
+            --line: #87ceda;
+            --violet: #8b5cf6;
+            --cyan: #7dc7d4;
+            --text: #e6edf5;
+            --text-soft: #b9c5d8;
+            --error: #ff6b6b;
+            --ok: #6dd9a2;
+        }
+        * { box-sizing: border-box; }
         body {
             margin: 0;
             min-height: 100vh;
-            font-family: Arial, sans-serif;
-            color: #e5e7eb;
-            background: radial-gradient(circle at top right, rgba(139, 92, 246, 0.18), transparent 45%),
-                        radial-gradient(circle at bottom left, rgba(34, 211, 238, 0.12), transparent 40%),
-                        var(--negro);
+            font-family: "Segoe UI", Arial, sans-serif;
+            color: var(--text);
+            background: radial-gradient(circle at 20% 10%, rgba(139, 92, 246, 0.12), transparent 42%),
+                        radial-gradient(circle at 80% 90%, rgba(125, 199, 212, 0.09), transparent 44%),
+                        var(--bg);
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 14px;
+            padding: 16px;
+            overflow: hidden;
+        }
+        #particles {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
         }
         .card {
-            width: min(92vw, 380px);
-            background: rgba(17, 24, 39, 0.92);
-            border: 1px solid var(--cian);
-            box-shadow: 0 0 18px rgba(34, 211, 238, 0.4), 0 0 22px rgba(139, 92, 246, 0.25);
-            border-radius: 16px;
-            padding: 20px;
+            position: relative;
+            z-index: 1;
+            width: min(94vw, 410px);
+            padding: 26px 22px 20px 22px;
+            border-radius: 18px;
+            background: var(--card);
+            border: 1px solid rgba(135, 206, 218, 0.62);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 0 0 1px rgba(125, 199, 212, 0.15), 0 0 26px rgba(125, 199, 212, 0.28), 0 0 44px rgba(139, 92, 246, 0.18), 0 18px 40px rgba(0, 0, 0, 0.35);
         }
-        h1 {
-            margin: 0 0 6px 0;
-            color: #7ef9ff;
-            font-size: 1.2rem;
-            letter-spacing: 0.5px;
+        .brand {
+            margin: 0;
             text-align: center;
+            font-size: 1.42rem;
+            letter-spacing: 1.8px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #e0f4f8;
+            text-shadow: 0 0 12px rgba(125, 199, 212, 0.45), 0 0 24px rgba(139, 92, 246, 0.35);
+        }
+        .brand small {
+            display: block;
+            margin-top: 2px;
+            font-size: 0.64rem;
+            letter-spacing: 3.6px;
+            color: #aac4d8;
+            text-shadow: none;
         }
         .sub {
-            margin: 0 0 14px 0;
+            margin: 8px 0 16px 0;
             text-align: center;
-            font-size: 0.82rem;
-            color: #cbd5e1;
+            font-size: 0.84rem;
+            color: var(--text-soft);
         }
         label {
-            font-size: 0.78rem;
-            color: #cbd5e1;
+            font-size: 0.8rem;
+            color: #ced9e8;
             display: block;
-            margin: 8px 0 4px 0;
+            margin: 10px 0 6px 0;
+        }
+        .input-wrap {
+            position: relative;
+        }
+        .input-icon {
+            position: absolute;
+            left: 11px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            color: var(--line);
+            filter: drop-shadow(0 0 5px rgba(125, 199, 212, 0.45));
+            opacity: 0.95;
+            pointer-events: none;
         }
         input {
             width: 100%;
-            box-sizing: border-box;
             border-radius: 10px;
-            border: 1px solid #334155;
-            background: #0f172a;
-            color: #e5e7eb;
-            padding: 11px 12px;
+            border: 1px solid #3a4a63;
+            background: rgba(9, 15, 29, 0.8);
+            color: var(--text);
+            padding: 12px 44px 12px 35px;
             font-size: 0.92rem;
+            outline: none;
+            transition: border-color .2s ease, box-shadow .2s ease;
         }
-        .pass-wrap {
-            position: relative;
+        input:focus {
+            border-color: #91ccd8;
+            box-shadow: 0 0 0 3px rgba(145, 204, 216, 0.16);
         }
         .btn-eye {
             position: absolute;
-            right: 8px;
+            right: 7px;
             top: 50%;
             transform: translateY(-50%);
-            border: 1px solid #334155;
-            background: #1e293b;
-            color: #cbd5e1;
+            border: none;
+            background: rgba(38, 53, 79, 0.75);
+            color: #d0d9e6;
             border-radius: 8px;
-            font-size: 0.8rem;
-            padding: 4px 8px;
+            font-size: 0.78rem;
+            padding: 5px 8px;
             cursor: pointer;
         }
         .btn {
@@ -79,31 +129,36 @@
             border: none;
             border-radius: 10px;
             padding: 12px;
-            font-size: 0.9rem;
-            font-weight: bold;
+            font-size: 0.94rem;
+            font-weight: 700;
             cursor: pointer;
-            margin-top: 12px;
+            margin-top: 14px;
         }
         .btn-main {
-            background: linear-gradient(90deg, #06b6d4, #8b5cf6);
-            color: white;
-            border: 1px solid #7ef9ff;
-            box-shadow: 0 0 12px rgba(126, 249, 255, 0.38);
+            background: linear-gradient(90deg, #7049f2, #42c2db);
+            color: #fff;
+            box-shadow: 0 8px 20px rgba(66, 194, 219, 0.2);
         }
         .switch {
             text-align: center;
             margin-top: 12px;
             font-size: 0.82rem;
-            color: #cbd5e1;
+            color: var(--text-soft);
         }
-        .switch button {
+        .switch button, .forgot-link {
             border: none;
             background: none;
-            color: #7ef9ff;
-            font-weight: bold;
+            color: #b9d9e3;
             cursor: pointer;
             text-decoration: underline;
             font-size: 0.82rem;
+        }
+        .forgot-wrap {
+            margin-top: 8px;
+            text-align: center;
+        }
+        .forgot-link {
+            opacity: 0.9;
         }
         .toast-wrap {
             position: fixed;
@@ -124,33 +179,114 @@
             color: #fff;
             background: rgba(20, 24, 34, 0.96);
             border: 1px solid #2d3748;
-            box-shadow: 0 0 12px rgba(241, 196, 15, 0.28);
+            box-shadow: 0 0 12px rgba(125, 199, 212, 0.25);
             transform: translateX(10px);
             opacity: 0;
             transition: transform .18s ease, opacity .18s ease;
         }
         .toast.show { transform: translateX(0); opacity: 1; }
-        .toast-success { border-color: var(--verde); box-shadow: 0 0 12px rgba(57, 255, 136, 0.55); }
-        .toast-error { border-color: var(--rojo); box-shadow: 0 0 12px rgba(255, 59, 59, 0.62); }
-        .toast-info { border-color: #f1c40f; box-shadow: 0 0 12px rgba(241, 196, 15, 0.48); }
+        .toast-success { border-color: var(--ok); box-shadow: 0 0 12px rgba(109, 217, 162, 0.45); }
+        .toast-error { border-color: var(--error); box-shadow: 0 0 12px rgba(255, 107, 107, 0.55); }
+        .toast-info { border-color: var(--line); }
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 1900;
+            background: rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(2px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 14px;
+        }
+        .modal-card {
+            width: min(92vw, 360px);
+            background: rgba(22, 31, 49, 0.92);
+            border-radius: 14px;
+            padding: 16px;
+            border: 1px solid rgba(135, 206, 218, 0.55);
+            box-shadow: 0 0 18px rgba(125, 199, 212, 0.25), 0 10px 30px rgba(0, 0, 0, 0.35);
+        }
+        .modal-title {
+            margin: 0 0 6px 0;
+            font-size: 1rem;
+            color: #dbedf2;
+        }
+        .modal-sub {
+            margin: 0 0 10px 0;
+            font-size: 0.82rem;
+            color: var(--text-soft);
+        }
+        .modal-actions {
+            margin-top: 10px;
+            display: flex;
+            gap: 8px;
+        }
+        .btn-muted {
+            background: rgba(66, 84, 114, 0.72);
+            color: #edf2f8;
+            margin-top: 0;
+        }
+        .btn-send {
+            background: linear-gradient(90deg, #7049f2, #42c2db);
+            color: #fff;
+            margin-top: 0;
+        }
     </style>
 </head>
 <body>
+    <canvas id="particles"></canvas>
     <div id="toast-wrap" class="toast-wrap"></div>
+
     <div class="card">
-        <h1>ACCESO HONEY</h1>
+        <h1 class="brand">Smart Tech<small>Secure Access</small></h1>
         <p id="subtitulo" class="sub">Inicia sesión para entrar al dashboard.</p>
+
         <label for="email">Email</label>
-        <input id="email" type="email" placeholder="tucorreo@ejemplo.com">
+        <div class="input-wrap">
+            <svg class="input-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 6h16v12H4z" stroke="currentColor" stroke-width="1.8" />
+                <path d="M4 7l8 6 8-6" stroke="currentColor" stroke-width="1.8" />
+            </svg>
+            <input id="email" type="email" placeholder="tucorreo@ejemplo.com">
+        </div>
+
         <label for="password">Contraseña</label>
-        <div class="pass-wrap">
+        <div class="input-wrap">
+            <svg class="input-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.8"></rect>
+                <path d="M8 11V8a4 4 0 1 1 8 0v3" stroke="currentColor" stroke-width="1.8"></path>
+            </svg>
             <input id="password" type="password" placeholder="Tu contraseña">
             <button class="btn-eye" type="button" onclick="togglePassword()">👁</button>
         </div>
+
         <button id="btn-main" class="btn btn-main" onclick="procesarAuth()">Ingresar</button>
+
         <div class="switch">
             <span id="switch-label">¿No tienes cuenta?</span>
             <button type="button" onclick="toggleModoRegistro()" id="switch-btn">Regístrate</button>
+        </div>
+        <div class="forgot-wrap">
+            <button class="forgot-link" type="button" onclick="abrirModalRecupero()">¿Olvidaste tu contraseña?</button>
+        </div>
+    </div>
+
+    <div id="modal-recupero" class="modal-overlay">
+        <div class="modal-card">
+            <h3 class="modal-title">Recuperar contraseña</h3>
+            <p class="modal-sub">Ingresa tu email y te enviaremos el enlace para restablecer acceso.</p>
+            <div class="input-wrap">
+                <svg class="input-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M4 6h16v12H4z" stroke="currentColor" stroke-width="1.8" />
+                    <path d="M4 7l8 6 8-6" stroke="currentColor" stroke-width="1.8" />
+                </svg>
+                <input id="email-reset" type="email" placeholder="tuemail@ejemplo.com">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-muted" type="button" onclick="cerrarModalRecupero()">Cancelar</button>
+                <button class="btn btn-send" type="button" onclick="enviarRecuperacion()">Enviar enlace</button>
+            </div>
         </div>
     </div>
 
@@ -191,6 +327,35 @@
         document.getElementById('switch-btn').innerText = modoRegistro ? 'Inicia sesión' : 'Regístrate';
     }
 
+    function abrirModalRecupero() {
+        const modal = document.getElementById('modal-recupero');
+        const emailActual = document.getElementById('email').value.trim();
+        document.getElementById('email-reset').value = emailActual;
+        modal.style.display = 'flex';
+        document.getElementById('email-reset').focus();
+    }
+
+    function cerrarModalRecupero() {
+        document.getElementById('modal-recupero').style.display = 'none';
+    }
+
+    async function enviarRecuperacion() {
+        const email = document.getElementById('email-reset').value.trim();
+        if (!email) {
+            showToast('Ingresa un email válido.', 'error');
+            return;
+        }
+        try {
+            const redirectTo = `${window.location.origin}${window.location.pathname.replace('login.html', 'reset-password.html')}`;
+            const { error } = await _supabase.auth.resetPasswordForEmail(email, { redirectTo });
+            if (error) throw error;
+            showToast('Te enviamos el email de recuperación.', 'success', 3000);
+            cerrarModalRecupero();
+        } catch (err) {
+            showToast(err.message || 'No se pudo enviar el email de recuperación.', 'error', 3400);
+        }
+    }
+
     async function procesarAuth() {
         const email = document.getElementById('email').value.trim();
         const password = document.getElementById('password').value;
@@ -202,7 +367,7 @@
             if (modoRegistro) {
                 const { error } = await _supabase.auth.signUp({ email, password });
                 if (error) throw error;
-                showToast('Cuenta creada. Ahora puedes ingresar.', 'success', 2500);
+                showToast('Cuenta creada. Revisa tu correo para confirmarla.', 'success', 3000);
                 modoRegistro = true;
                 toggleModoRegistro();
                 return;
@@ -216,7 +381,58 @@
         }
     }
 
+    function initParticles() {
+        const canvas = document.getElementById('particles');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        let w = 0;
+        let h = 0;
+        let particles = [];
+
+        function resize() {
+            w = canvas.width = window.innerWidth;
+            h = canvas.height = window.innerHeight;
+            const count = Math.max(22, Math.floor((w * h) / 24000));
+            particles = Array.from({ length: count }).map(() => ({
+                x: Math.random() * w,
+                y: Math.random() * h,
+                r: 1 + Math.random() * 2.3,
+                vx: -0.18 + Math.random() * 0.36,
+                vy: -0.18 + Math.random() * 0.36,
+                c: Math.random() > 0.5 ? '125,199,212' : '139,92,246'
+            }));
+        }
+
+        function tick() {
+            ctx.clearRect(0, 0, w, h);
+            for (const p of particles) {
+                p.x += p.vx;
+                p.y += p.vy;
+                if (p.x < -8) p.x = w + 8;
+                if (p.x > w + 8) p.x = -8;
+                if (p.y < -8) p.y = h + 8;
+                if (p.y > h + 8) p.y = -8;
+
+                const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 4.8);
+                glow.addColorStop(0, `rgba(${p.c},0.34)`);
+                glow.addColorStop(1, `rgba(${p.c},0)`);
+                ctx.fillStyle = glow;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.r * 4.8, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            requestAnimationFrame(tick);
+        }
+
+        resize();
+        tick();
+        window.addEventListener('resize', resize);
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
+        initParticles();
         const { data: { user } } = await _supabase.auth.getUser();
         if (user) window.location.href = 'index.html';
     });
