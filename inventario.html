@@ -110,6 +110,62 @@
         .toast-success { border-color: #39ff88; box-shadow: 0 0 12px rgba(57, 255, 136, 0.55); }
         .toast-error { border-color: #ff3b3b; box-shadow: 0 0 12px rgba(255, 59, 59, 0.62); }
         .toast-info { border-color: #f1c40f; box-shadow: 0 0 12px rgba(241, 196, 15, 0.48); }
+        .btn-ajuste {
+            background: rgba(14, 165, 233, 0.18);
+            color: #7ef9ff;
+            border: 1px solid #22d3ee;
+            box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+        }
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1900;
+            padding: 12px;
+        }
+        .modal-card {
+            width: min(94vw, 420px);
+            background: #1f2937;
+            border: 1px solid #22d3ee;
+            box-shadow: 0 0 18px rgba(34, 211, 238, 0.4), 0 0 12px rgba(168, 85, 247, 0.28);
+            border-radius: 14px;
+            padding: 14px;
+            text-align: left;
+        }
+        .modal-card h4 {
+            margin: 0 0 8px 0;
+            color: #7ef9ff;
+        }
+        .modal-help {
+            margin: 0 0 10px 0;
+            color: #cbd5e1;
+            font-size: 0.8rem;
+        }
+        .modal-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .modal-select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: none;
+            font-size: 0.95rem;
+        }
+        .btn-modal-cancel {
+            background: #4b5563;
+            color: white;
+        }
+        .btn-modal-confirm {
+            background: linear-gradient(90deg, #06b6d4, #8b5cf6);
+            color: white;
+            border: 1px solid #7ef9ff;
+            box-shadow: 0 0 10px rgba(126, 249, 255, 0.45);
+        }
         .capital-card { background: var(--azul); padding: 10px; border-radius: 10px; margin-bottom: 10px; text-align: center; }
         .badge-role { background: var(--amarillo); color: black; padding: 2px 10px; border-radius: 10px; font-size: 0.7rem; font-weight: bold; }
     </style>
@@ -156,7 +212,10 @@
         <div class="capital-card admin-only">
             💰 Valor Venta Total: <b id="total-stock-pesos">$0</b>
         </div>
-        <button class="btn btn-lista" onclick="cargarListaMercaderia()">🔄 ACTUALIZAR LISTA</button>
+        <div class="admin-only" style="display:flex; gap:8px;">
+            <button class="btn btn-lista" onclick="cargarListaMercaderia()">🔄 ACTUALIZAR LISTA</button>
+            <button class="btn btn-ajuste" onclick="abrirModalAjustePrecios()">⚡ AJUSTE DE PRECIOS</button>
+        </div>
         <div class="tabla-contenedor">
             <table class="tabla-inventario">
                 <thead>
@@ -209,6 +268,23 @@
         <div id="lista-historial"></div>
     </div>
 
+    <div id="modal-ajuste-precios" class="modal-overlay">
+        <div class="modal-card">
+            <h4>Ajuste de Precios</h4>
+            <p class="modal-help">Ingresa porcentaje (ej: 10 o -5) y aplica a todo el inventario o una categoría.</p>
+            <input type="text" id="ajuste-porcentaje" placeholder="Porcentaje (ej: 10 o -5%)">
+            <select id="ajuste-alcance" class="modal-select" onchange="onCambioAlcanceAjuste()">
+                <option value="todos">Todos los Productos</option>
+                <option value="categoria">Categoría específica</option>
+            </select>
+            <select id="ajuste-categoria" class="modal-select" style="display:none; margin-top:8px;"></select>
+            <div class="modal-row">
+                <button class="btn btn-modal-cancel" onclick="cerrarModalAjustePrecios()">Cancelar</button>
+                <button class="btn btn-modal-confirm" onclick="aplicarAjusteMasivoPrecios()">Confirmar Ajuste</button>
+            </div>
+        </div>
+    </div>
+
 <script>
     const SB_URL = "https://svpurpvbiujhcbiugrkh.supabase.co";
     const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2cHVycHZiaXVqaGNiaXVncmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3NDgzMTUsImV4cCI6MjA4MzMyNDMxNX0.AivKJ0_N0z_4T4vLNfUcE2hepJ1XXOO8-4fSA3PJXdc";
@@ -218,6 +294,9 @@
     /** Rol actual en memoria (se establece tras verificar contra Supabase). No confiar solo en almacenamiento. */
     let currentUserRole = null;
     let toastTimeoutRef = null;
+    let productosCache = [];
+    let categoriasCache = [];
+    let existeColumnaCategoria = false;
 
     function showToast(message, type = "info", duration = 2200) {
         const wrap = document.getElementById('toast-wrap');
@@ -238,6 +317,116 @@
         if (stock === 0) return 'stock-zero';
         if (stock <= 5) return 'stock-low';
         return 'stock-ok';
+    }
+
+    function abrirModalAjustePrecios() {
+        if (currentUserRole !== "ADMIN") {
+            showToast('No autorizado. Solo ADMIN puede ajustar precios.', 'error', 2600);
+            return;
+        }
+        document.getElementById('ajuste-porcentaje').value = '';
+        document.getElementById('ajuste-alcance').value = 'todos';
+        recargarCategoriasModal();
+        onCambioAlcanceAjuste();
+        document.getElementById('modal-ajuste-precios').style.display = 'flex';
+    }
+
+    function cerrarModalAjustePrecios() {
+        document.getElementById('modal-ajuste-precios').style.display = 'none';
+    }
+
+    function recargarCategoriasModal() {
+        const sel = document.getElementById('ajuste-categoria');
+        sel.innerHTML = '';
+        if (!existeColumnaCategoria || categoriasCache.length === 0) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = 'Sin categorías disponibles';
+            sel.appendChild(opt);
+            return;
+        }
+        categoriasCache.forEach(cat => {
+            const opt = document.createElement('option');
+            opt.value = cat;
+            opt.textContent = cat;
+            sel.appendChild(opt);
+        });
+    }
+
+    function onCambioAlcanceAjuste() {
+        const alcance = document.getElementById('ajuste-alcance').value;
+        const selCategoria = document.getElementById('ajuste-categoria');
+        if (alcance === 'categoria') {
+            if (!existeColumnaCategoria) {
+                showToast('Tu tabla no tiene columna "categoria". Se aplicará a todos.', 'info', 2600);
+                document.getElementById('ajuste-alcance').value = 'todos';
+                selCategoria.style.display = 'none';
+                return;
+            }
+            selCategoria.style.display = 'block';
+        } else {
+            selCategoria.style.display = 'none';
+        }
+    }
+
+    function parsearPorcentajeAjuste(valor) {
+        const limpio = String(valor || '').replace('%', '').trim();
+        if (!limpio) return NaN;
+        return Number(limpio);
+    }
+
+    async function aplicarAjusteMasivoPrecios() {
+        const rol = await verificarRolActual();
+        if (rol !== 'ADMIN') {
+            showToast('No autorizado. Solo ADMIN puede ajustar precios.', 'error', 2600);
+            return;
+        }
+
+        const porcentaje = parsearPorcentajeAjuste(document.getElementById('ajuste-porcentaje').value);
+        if (!Number.isFinite(porcentaje) || porcentaje === 0) {
+            showToast('Indica un porcentaje válido distinto de 0.', 'error');
+            return;
+        }
+
+        const factor = 1 + (porcentaje / 100);
+        if (factor <= 0) {
+            showToast('El ajuste no puede dejar precios en 0 o negativos.', 'error');
+            return;
+        }
+
+        const alcance = document.getElementById('ajuste-alcance').value;
+        const categoria = document.getElementById('ajuste-categoria').value;
+        let objetivos = [...productosCache];
+        if (alcance === 'categoria' && existeColumnaCategoria) {
+            objetivos = objetivos.filter(p => (p.categoria || '') === categoria);
+        }
+
+        if (objetivos.length === 0) {
+            showToast('No hay productos para actualizar con ese filtro.', 'info');
+            return;
+        }
+
+        const accion = porcentaje > 0 ? 'aumentar' : 'disminuir';
+        const resumenAmbito = alcance === 'categoria' ? ` de la categoría "${categoria}"` : '';
+        const confirmar = confirm(`¿Estás seguro de ${accion} el precio de ${objetivos.length} productos${resumenAmbito} en ${porcentaje}%?`);
+        if (!confirmar) return;
+
+        const actualizados = objetivos.map(p => ({
+            ...p,
+            precio: Number(Math.max(0, Number(p.precio || 0) * factor).toFixed(2))
+        }));
+
+        const { error } = await _supabase
+            .from('productos_almacen')
+            .upsert(actualizados, { onConflict: 'codigo_barras' });
+        if (error) {
+            showToast('No se pudo aplicar el ajuste: ' + error.message, 'error', 3200);
+            return;
+        }
+
+        cerrarModalAjustePrecios();
+        showToast(`Ajuste aplicado en ${actualizados.length} productos.`, 'success', 2400);
+        await cargarListaMercaderia();
     }
 
     /** Verifica el PIN en la tabla 'usuarios' de Supabase. Retorna el rol ('ADMIN'/'VENDEDOR') o null. */
@@ -436,10 +625,18 @@
         const cuerpo = document.getElementById('cuerpo-tabla');
         cuerpo.innerHTML = "Cargando...";
         const { data, error } = await _supabase.from('productos_almacen').select('*').order('nombre', { ascending: true });
-        if (error) return;
+        if (error) {
+            showToast('No se pudo cargar inventario: ' + error.message, 'error', 3000);
+            return;
+        }
+        productosCache = data || [];
+        existeColumnaCategoria = productosCache.length > 0 ? Object.prototype.hasOwnProperty.call(productosCache[0], 'categoria') : false;
+        categoriasCache = existeColumnaCategoria
+            ? [...new Set(productosCache.map(p => p.categoria).filter(Boolean))].sort((a, b) => a.localeCompare(b))
+            : [];
         
         let html = ""; let sumaTotal = 0;
-        data.forEach(p => {
+        productosCache.forEach(p => {
             const claseStock = claseSemaforoStock(Number(p.stock) || 0);
             sumaTotal += (p.precio * p.stock);
             const celdaCosto = currentUserRole === "ADMIN" ? `<td>$${p.precio_costo || 0}</td>` : "";
