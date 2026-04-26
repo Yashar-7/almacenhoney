@@ -34,6 +34,20 @@
             color: #c084fc;
             text-shadow: 0 0 8px rgba(192, 132, 252, 0.85);
         }
+        .btn-xreport {
+            margin: 8px auto 0 auto;
+            display: none;
+            width: fit-content;
+            padding: 7px 12px;
+            border-radius: 999px;
+            border: 1px solid #22d3ee;
+            background: rgba(34, 211, 238, 0.16);
+            color: #7ef9ff;
+            font-size: 0.76rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(34, 211, 238, 0.45);
+        }
 
         #reader { width: 100%; border-radius: 15px; border: 3px solid var(--naranja); background: #000; overflow: hidden; }
         .carrito { background: var(--gris); border-radius: 15px; padding: 15px; margin-top: 15px; min-height: 80px; max-height: 180px; overflow-y: auto; }
@@ -213,6 +227,7 @@
         <img src="almacenhoney.png" alt="Logo Honey">
         <h1 id="nombre-local-header">ALMACÉN HONEY</h1>
         <div id="utilidad-dia-card" class="utilidad-card">Utilidad del Día: <b id="utilidad-dia-monto">$ 0.00</b></div>
+        <button id="btn-xreport" class="btn-xreport" onclick="enviarXReportWhatsApp()">📊 X-REPORT WHATSAPP</button>
     </div>
 
     <div onclick="irAInventario()" class="btn-float">📦</div>
@@ -338,6 +353,7 @@
                 document.getElementById('roleDisplay').innerText = "ROL: " + currentUserRole;
                 if (currentUserRole === "ADMIN") {
                     document.getElementById('utilidad-dia-card').style.display = 'inline-block';
+                    document.getElementById('btn-xreport').style.display = 'inline-block';
                     await cargarUtilidadDelDia();
                 }
             } else {
@@ -557,6 +573,42 @@
         if (!ultimoTicketWhatsApp) return showToast("No hay ticket generado.", "error");
         const mensajeCodificado = encodeURIComponent(ultimoTicketWhatsApp);
         window.open(`https://wa.me/?text=${mensajeCodificado}`, "_blank");
+    }
+
+    async function enviarXReportWhatsApp() {
+        if (currentUserRole !== "ADMIN") {
+            showToast("Solo ADMIN puede generar X-Report.", "error");
+            return;
+        }
+        const inicio = new Date();
+        inicio.setHours(0, 0, 0, 0);
+        try {
+            const [{ data: ventas, error: errorVentas }, { data: gastos, error: errorGastos }] = await Promise.all([
+                _supabase.from('ventas_honey').select('total, metodo_pago, ganancia_neta').gte('fecha', inicio.toISOString()),
+                _supabase.from('gastos_honey').select('monto').gte('fecha', inicio.toISOString())
+            ]);
+            if (errorVentas) throw errorVentas;
+            if (errorGastos) throw errorGastos;
+
+            const totalVentas = (ventas || []).reduce((acc, v) => acc + Number(v.total || 0), 0);
+            const gananciaBase = (ventas || []).reduce((acc, v) => acc + Number(v.ganancia_neta || 0), 0);
+            const totalGastos = (gastos || []).reduce((acc, g) => acc + Number(g.monto || 0), 0);
+            const gananciaReal = gananciaBase - totalGastos;
+
+            const efectivo = (ventas || []).filter(v => v.metodo_pago === 'Efectivo').reduce((acc, v) => acc + Number(v.total || 0), 0);
+            const qr = (ventas || []).filter(v => v.metodo_pago === 'QR').reduce((acc, v) => acc + Number(v.total || 0), 0);
+            const tarjeta = (ventas || []).filter(v => v.metodo_pago === 'Tarjeta').reduce((acc, v) => acc + Number(v.total || 0), 0);
+
+            const fecha = new Date().toLocaleDateString('es-AR');
+            const nombreLocal = (perfilNegocio.nombre_local || "ALMACÉN HONEY").toUpperCase();
+            const mensaje = `📊 *X-REPORT DIARIO* - ${fecha}\n🏪 *${nombreLocal}*\n\n💰 *Ventas Totales:* ${formatoMoneda(totalVentas)}\n📈 *Ganancia Real:* ${formatoMoneda(gananciaReal)}\n\n💳 *Desglose de caja:*\n• Efectivo: ${formatoMoneda(efectivo)}\n• QR: ${formatoMoneda(qr)}\n• Tarjeta: ${formatoMoneda(tarjeta)}`;
+
+            const mensajeCodificado = encodeURIComponent(mensaje);
+            window.open(`https://wa.me/?text=${mensajeCodificado}`, "_blank");
+            showToast("X-Report generado para WhatsApp", "success");
+        } catch (err) {
+            showToast("No se pudo generar X-Report: " + err.message, "error", 3200);
+        }
     }
 
     async function finalizarVenta(metodo) {

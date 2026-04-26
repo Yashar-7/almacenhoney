@@ -116,6 +116,16 @@
             border: 1px solid #22d3ee;
             box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
         }
+        .btn-agotados {
+            background: rgba(255, 59, 59, 0.2);
+            color: #ff8f8f;
+            border: 1px solid #ff3b3b;
+            box-shadow: 0 0 10px rgba(255, 59, 59, 0.5);
+        }
+        .btn-agotados.active {
+            background: rgba(255, 59, 59, 0.35);
+            color: #fff;
+        }
         .modal-overlay {
             position: fixed;
             inset: 0;
@@ -143,6 +153,15 @@
             margin: 0 0 10px 0;
             color: #cbd5e1;
             font-size: 0.8rem;
+        }
+        .simulacion-box {
+            margin-top: 8px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            background: rgba(15, 23, 42, 0.75);
+            border: 1px dashed #7ef9ff;
+            color: #e2e8f0;
+            font-size: 0.82rem;
         }
         .modal-row {
             display: flex;
@@ -212,9 +231,10 @@
         <div class="capital-card admin-only">
             💰 Valor Venta Total: <b id="total-stock-pesos">$0</b>
         </div>
-        <div class="admin-only" style="display:flex; gap:8px;">
+        <div style="display:flex; gap:8px;">
             <button class="btn btn-lista" onclick="cargarListaMercaderia()">🔄 ACTUALIZAR LISTA</button>
-            <button class="btn btn-ajuste" onclick="abrirModalAjustePrecios()">⚡ AJUSTE DE PRECIOS</button>
+            <button class="btn btn-ajuste admin-only" onclick="abrirModalAjustePrecios()">⚡ AJUSTE DE PRECIOS</button>
+            <button id="btn-ver-agotados" class="btn btn-agotados" onclick="toggleFiltroAgotados()">🚨 VER AGOTADOS</button>
         </div>
         <div class="tabla-contenedor">
             <table class="tabla-inventario">
@@ -272,12 +292,13 @@
         <div class="modal-card">
             <h4>Ajuste de Precios</h4>
             <p class="modal-help">Ingresa porcentaje (ej: 10 o -5) y aplica a todo el inventario o una categoría.</p>
-            <input type="text" id="ajuste-porcentaje" placeholder="Porcentaje (ej: 10 o -5%)">
+            <input type="text" id="ajuste-porcentaje" placeholder="Porcentaje (ej: 10 o -5%)" oninput="actualizarSimulacionAjuste()">
             <select id="ajuste-alcance" class="modal-select" onchange="onCambioAlcanceAjuste()">
                 <option value="todos">Todos los Productos</option>
                 <option value="categoria">Categoría específica</option>
             </select>
             <select id="ajuste-categoria" class="modal-select" style="display:none; margin-top:8px;"></select>
+            <div id="ajuste-simulacion" class="simulacion-box">Ejemplo: Producto de $1,000.00 -> pasará a $1,000.00</div>
             <div class="modal-row">
                 <button class="btn btn-modal-cancel" onclick="cerrarModalAjustePrecios()">Cancelar</button>
                 <button class="btn btn-modal-confirm" onclick="aplicarAjusteMasivoPrecios()">Confirmar Ajuste</button>
@@ -297,6 +318,7 @@
     let productosCache = [];
     let categoriasCache = [];
     let existeColumnaCategoria = false;
+    let filtroAgotadosActivo = false;
 
     function showToast(message, type = "info", duration = 2200) {
         const wrap = document.getElementById('toast-wrap');
@@ -328,6 +350,7 @@
         document.getElementById('ajuste-alcance').value = 'todos';
         recargarCategoriasModal();
         onCambioAlcanceAjuste();
+        actualizarSimulacionAjuste();
         document.getElementById('modal-ajuste-precios').style.display = 'flex';
     }
 
@@ -367,12 +390,29 @@
         } else {
             selCategoria.style.display = 'none';
         }
+        actualizarSimulacionAjuste();
     }
 
     function parsearPorcentajeAjuste(valor) {
         const limpio = String(valor || '').replace('%', '').trim();
         if (!limpio) return NaN;
         return Number(limpio);
+    }
+
+    function actualizarSimulacionAjuste() {
+        const porcentaje = parsearPorcentajeAjuste(document.getElementById('ajuste-porcentaje')?.value);
+        const base = 1000;
+        const nuevo = Number.isFinite(porcentaje) ? base * (1 + (porcentaje / 100)) : base;
+        const ejemplo = document.getElementById('ajuste-simulacion');
+        ejemplo.textContent = `Ejemplo: Producto de $${base.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} -> pasará a $${Math.max(0, nuevo).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+
+    function toggleFiltroAgotados() {
+        filtroAgotadosActivo = !filtroAgotadosActivo;
+        const btn = document.getElementById('btn-ver-agotados');
+        if (btn) btn.classList.toggle('active', filtroAgotadosActivo);
+        showToast(filtroAgotadosActivo ? 'Filtro activo: stock menor a 5' : 'Filtro desactivado', 'info', 1600);
+        renderTablaInventario();
     }
 
     async function aplicarAjusteMasivoPrecios() {
@@ -634,9 +674,16 @@
         categoriasCache = existeColumnaCategoria
             ? [...new Set(productosCache.map(p => p.categoria).filter(Boolean))].sort((a, b) => a.localeCompare(b))
             : [];
-        
+        renderTablaInventario();
+    }
+
+    function renderTablaInventario() {
+        const cuerpo = document.getElementById('cuerpo-tabla');
+        const listaBase = filtroAgotadosActivo
+            ? productosCache.filter(p => Number(p.stock || 0) < 5)
+            : productosCache;
         let html = ""; let sumaTotal = 0;
-        productosCache.forEach(p => {
+        listaBase.forEach(p => {
             const claseStock = claseSemaforoStock(Number(p.stock) || 0);
             sumaTotal += (p.precio * p.stock);
             const celdaCosto = currentUserRole === "ADMIN" ? `<td>$${p.precio_costo || 0}</td>` : "";
@@ -655,6 +702,7 @@
                 </td>
             </tr>`;
         });
+        if (!html) html = `<tr><td colspan="${currentUserRole === 'ADMIN' ? 4 : 3}" style="text-align:center; color:#94a3b8;">No hay productos para mostrar.</td></tr>`;
         cuerpo.innerHTML = html;
         if(currentUserRole === "ADMIN") document.getElementById('total-stock-pesos').innerText = "$ " + sumaTotal.toLocaleString();
     }
