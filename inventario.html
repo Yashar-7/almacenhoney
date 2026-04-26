@@ -13,13 +13,15 @@
         :root {
             --negro: #0a0f1f;
             --gris: #111827;
-            --cian: #22d3ee;
-            --violeta: #8b5cf6;
+            --cian: #8ccfdc;
+            --violeta: #8c7fd4;
             --acento: #fbbf24;
-            --rojo: #ff3b3b;
-            --verde: #39ff88;
-            --azul: #38bdf8;
-            --morado: #c084fc;
+            --rojo: #ff5f5f;
+            --verde: #88d9a7;
+            --azul: #8bbde2;
+            --morado: #c6b8f2;
+            --panel: rgba(255, 255, 255, 0.05);
+            --panel-soft: rgba(255, 255, 255, 0.035);
         }
         body {
             font-family: Arial, sans-serif;
@@ -34,13 +36,13 @@
                         var(--negro);
         }
         .card {
-            background: rgba(17, 24, 39, 0.92);
-            padding: 15px;
+            background: var(--panel);
+            padding: 20px;
             border-radius: 15px;
             margin-bottom: 15px;
             text-align: left;
-            border: 1px solid var(--cian);
-            box-shadow: 0 0 14px rgba(34, 211, 238, 0.18), 0 0 12px rgba(139, 92, 246, 0.12);
+            border: none;
+            box-shadow: inset 0 2px 0 rgba(140, 207, 220, 0.45);
         }
         
         .admin-only { display: none; } 
@@ -58,10 +60,9 @@
         }
         .btn { width: 100%; padding: 12px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 5px; }
         .btn-scan {
-            background: linear-gradient(90deg, #06b6d4, #8b5cf6);
+            background: linear-gradient(90deg, #4eaec2, #7f72bf);
             color: #fff;
-            border: 1px solid #7ef9ff;
-            box-shadow: 0 0 12px rgba(126, 249, 255, 0.38);
+            box-shadow: none;
         }
         .btn-save { background: var(--verde); color: white; }
         .btn-delete { background: var(--rojo); color: white; margin-top: 10px; }
@@ -69,26 +70,26 @@
         .gasto-neon input {
             background: rgba(15, 23, 42, 0.95);
             color: #e2e8f0;
-            border: 1px solid #22d3ee;
-            box-shadow: 0 0 8px rgba(34, 211, 238, 0.2);
+            border: 1px solid #475569;
+            box-shadow: none;
         }
         .gasto-neon .btn-gasto {
-            background: linear-gradient(90deg, #06b6d4, #8b5cf6);
-            border: 1px solid #7ef9ff;
-            box-shadow: 0 0 10px rgba(126, 249, 255, 0.34);
+            background: linear-gradient(90deg, #4eaec2, #7f72bf);
+            border: none;
+            box-shadow: none;
         }
         .btn-caja {
-            background: linear-gradient(90deg, #0e7490, #6d28d9);
+            background: linear-gradient(90deg, #4b8ea1, #7467b5);
             color: #fff;
-            border: 1px solid #7ef9ff;
-            box-shadow: 0 0 12px rgba(126, 249, 255, 0.3);
+            border: none;
+            box-shadow: none;
         }
         .btn-excel { background: #1d6f42; color: white; }
         .btn-lista {
-            background: rgba(14, 165, 233, 0.22);
-            color: #7ef9ff;
-            border: 1px solid #22d3ee;
-            box-shadow: 0 0 10px rgba(34, 211, 238, 0.35);
+            background: linear-gradient(90deg, rgba(78, 174, 194, 0.35), rgba(127, 114, 191, 0.35));
+            color: #dce9ef;
+            border: none;
+            box-shadow: none;
         }
         .btn-nav {
             background: rgba(30, 41, 59, 0.95);
@@ -98,22 +99,28 @@
         }
         
         h2, h3 {
-            color: #7ef9ff;
+            color: #d6e9ee;
             margin: 5px 0;
-            text-shadow: 0 0 10px rgba(126, 249, 255, 0.25);
         }
-        #resultado-caja { font-size: 0.9rem; margin-top: 10px; background: #000; padding: 12px; border-radius: 10px; }
+        #resultado-caja {
+            font-size: 0.9rem;
+            margin-top: 10px;
+            background: var(--panel-soft);
+            padding: 14px;
+            border-radius: 10px;
+            box-shadow: inset 0 2px 0 rgba(140, 207, 220, 0.35);
+        }
         .ganancia-total { color: var(--verde); font-size: 1.6rem; font-weight: bold; display: block; text-align: center; margin-top: 5px; }
         .grid-metodos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; border-top: 1px solid #333; padding-top: 10px; }
         
-        .tabla-contenedor { overflow-x: auto; margin-top: 10px; background: #1a1a1a; border-radius: 10px; }
+        .tabla-contenedor { overflow-x: auto; margin-top: 10px; background: rgba(8, 12, 24, 0.8); border-radius: 10px; }
         .tabla-inventario { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
         .tabla-inventario th {
             background: rgba(15, 23, 42, 0.95);
-            color: #7ef9ff;
+            color: #d5e7ed;
             padding: 10px;
             text-align: left;
-            border-bottom: 1px solid rgba(34, 211, 238, 0.35);
+            border-bottom: 1px solid rgba(140, 207, 220, 0.35);
         }
         .tabla-inventario td { padding: 10px; border-bottom: 1px solid #333; }
         .stock-ok { color: #39ff88; font-weight: bold; text-shadow: 0 0 8px rgba(57, 255, 136, 0.85); }
@@ -207,10 +214,10 @@
         .toast-error { border-color: #ff3b3b; box-shadow: 0 0 12px rgba(255, 59, 59, 0.62); }
         .toast-info { border-color: #22d3ee; box-shadow: 0 0 12px rgba(34, 211, 238, 0.42); }
         .btn-ajuste {
-            background: rgba(14, 165, 233, 0.18);
-            color: #7ef9ff;
-            border: 1px solid #22d3ee;
-            box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+            background: linear-gradient(90deg, rgba(78, 174, 194, 0.35), rgba(127, 114, 191, 0.35));
+            color: #dce9ef;
+            border: none;
+            box-shadow: none;
         }
         .btn-agotados {
             background: rgba(255, 59, 59, 0.2);
@@ -234,11 +241,11 @@
         }
         .modal-card {
             width: min(94vw, 420px);
-            background: #1f2937;
-            border: 1px solid #22d3ee;
-            box-shadow: 0 0 18px rgba(34, 211, 238, 0.4), 0 0 12px rgba(168, 85, 247, 0.28);
+            background: rgba(24, 32, 49, 0.96);
+            border: none;
+            box-shadow: inset 0 2px 0 rgba(140, 207, 220, 0.5), 0 8px 24px rgba(0, 0, 0, 0.35);
             border-radius: 14px;
-            padding: 14px;
+            padding: 18px;
             text-align: left;
         }
         .modal-card h4 {
@@ -297,10 +304,10 @@
             color: white;
         }
         .btn-modal-confirm {
-            background: linear-gradient(90deg, #06b6d4, #8b5cf6);
+            background: linear-gradient(90deg, #4eaec2, #7f72bf);
             color: white;
-            border: 1px solid #7ef9ff;
-            box-shadow: 0 0 10px rgba(126, 249, 255, 0.45);
+            border: none;
+            box-shadow: none;
         }
         .contador-faltantes {
             display: none;
@@ -324,8 +331,8 @@
             text-align: left;
             background: rgba(15, 23, 42, 0.95);
             color: #e2e8f0;
-            border: 1px solid #22d3ee;
-            box-shadow: 0 0 8px rgba(34, 211, 238, 0.2);
+            border: 1px solid #475569;
+            box-shadow: none;
             font-size: 0.9rem;
             margin-bottom: 0;
         }
@@ -338,10 +345,10 @@
         .btn-sidebar {
             width: auto;
             margin: 0;
-            background: rgba(34, 211, 238, 0.18);
-            color: #7ef9ff;
-            border: 1px solid #22d3ee;
-            box-shadow: 0 0 10px rgba(34, 211, 238, 0.4);
+            background: linear-gradient(90deg, rgba(78, 174, 194, 0.3), rgba(127, 114, 191, 0.3));
+            color: #ddebf0;
+            border: none;
+            box-shadow: none;
         }
         .sidebar-overlay {
             position: fixed;
@@ -356,9 +363,9 @@
             right: -92%;
             width: min(88vw, 360px);
             height: 100vh;
-            background: #111827;
-            border-left: 1px solid #22d3ee;
-            box-shadow: -6px 0 20px rgba(34, 211, 238, 0.25), -2px 0 14px rgba(139, 92, 246, 0.2);
+            background: rgba(17, 24, 39, 0.98);
+            border-left: none;
+            box-shadow: -10px 0 26px rgba(0, 0, 0, 0.35);
             z-index: 1900;
             transition: right .22s ease;
             overflow-y: auto;
@@ -367,7 +374,7 @@
         }
         .sidebar.open { right: 0; }
         .sidebar-title {
-            color: #7ef9ff;
+            color: #d8e9ef;
             margin: 0 0 10px 0;
             font-size: 1rem;
             display: flex;
@@ -375,11 +382,12 @@
             align-items: center;
         }
         .sidebar-block {
-            background: #1f2937;
-            border: 1px solid #334155;
+            background: var(--panel);
+            border: none;
             border-radius: 12px;
-            padding: 10px;
+            padding: 14px;
             margin-bottom: 10px;
+            box-shadow: inset 0 2px 0 rgba(140, 207, 220, 0.38);
         }
         .deuda-item {
             display: flex;
@@ -411,25 +419,24 @@
             box-shadow: 0 0 8px rgba(57, 255, 136, 0.34);
         }
         .capital-card {
-            background: rgba(15, 23, 42, 0.9);
+            background: var(--panel-soft);
             padding: 10px;
             border-radius: 10px;
             margin-bottom: 10px;
             text-align: center;
-            border: 1px solid rgba(34, 211, 238, 0.45);
+            border: none;
             color: #e2e8f0;
-            box-shadow: 0 0 10px rgba(34, 211, 238, 0.2);
+            box-shadow: inset 0 2px 0 rgba(140, 207, 220, 0.35);
         }
         .badge-role {
-            background: rgba(15, 23, 42, 0.9);
-            color: #7ef9ff;
+            background: rgba(255, 255, 255, 0.06);
+            color: #d5e5eb;
             padding: 2px 10px;
             border-radius: 10px;
             font-size: 0.7rem;
             font-weight: bold;
-            border: 1px solid var(--cian);
+            border: none;
             border-left: 3px solid var(--acento);
-            box-shadow: 0 0 8px rgba(34, 211, 238, 0.25);
         }
     </style>
 </head>
