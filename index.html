@@ -46,8 +46,76 @@
             font-size: 1.3rem; text-decoration: none; border: 2px solid var(--amarillo);
             z-index: 1000; box-shadow: 0px 4px 10px rgba(0,0,0,0.5);
         }
+        .btn-float-left {
+            left: 20px;
+            right: auto;
+        }
 
         .badge-role { font-size: 0.7rem; background: var(--amarillo); color: black; padding: 2px 8px; border-radius: 10px; font-weight: bold; }
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.78);
+            backdrop-filter: blur(2px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1900;
+            padding: 15px;
+        }
+        .modal-card {
+            width: min(92vw, 420px);
+            background: var(--gris);
+            border: 2px solid var(--amarillo);
+            border-radius: 16px;
+            box-shadow: 0 0 25px rgba(243, 156, 18, 0.35);
+            padding: 18px;
+        }
+        .modal-title {
+            color: var(--amarillo);
+            margin: 0 0 10px 0;
+            font-size: 1.1rem;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .modal-sub {
+            color: #d4d4d4;
+            font-size: 0.78rem;
+            margin: 0 0 14px 0;
+        }
+        .modal-input {
+            width: 100%;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+            text-align: left;
+            font-size: 0.95rem;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 4px;
+        }
+        .modal-actions .btn {
+            margin-top: 0;
+        }
+        .btn-cerrar-modal {
+            background: #4b5563;
+            color: white;
+        }
+        .btn-guardar-modal {
+            background: var(--amarillo);
+            color: black;
+        }
+        .ticket-actions {
+            margin-top: 12px;
+            display: none;
+        }
+        .btn-whatsapp {
+            background: #25d366;
+            color: white;
+            font-size: 0.9rem;
+            padding: 12px;
+        }
     </style>
 </head>
 <body>
@@ -69,10 +137,11 @@
             <button onclick="salir()" style="background:none; border:1px solid var(--amarillo); color:var(--amarillo); font-size:0.6rem; padding:2px 5px; border-radius:5px;">SALIR</button>
         </div>
         <img src="almacenhoney.png" alt="Logo Honey">
-        <h1>ALMACÉN HONEY</h1>
+        <h1 id="nombre-local-header">ALMACÉN HONEY</h1>
     </div>
 
     <div onclick="irAInventario()" class="btn-float">📦</div>
+    <div onclick="abrirModalConfiguracion()" class="btn-float btn-float-left">⚙️</div>
 
     <div id="reader"></div>
     <button class="btn btn-scan" onclick="iniciarEscaneo()">➕ ESCANEAR PRODUCTO</button>
@@ -94,6 +163,23 @@
             <button class="btn-m m-qr" onclick="finalizarVenta('QR')">📱 QR / MP</button>
             <button class="btn-m m-transfe" onclick="finalizarVenta('Transferencia')">🏦 TRANSF.</button>
         </div>
+        <div id="ticket-actions" class="ticket-actions">
+            <button id="btn-whatsapp-ticket" class="btn btn-whatsapp" onclick="enviarTicketWhatsApp()">📲 Enviar Ticket por WhatsApp</button>
+        </div>
+    </div>
+</div>
+
+<div id="modal-config-negocio" class="modal-overlay">
+    <div class="modal-card">
+        <h3 class="modal-title">Configuración de Negocio</h3>
+        <p class="modal-sub">Personaliza tu local y el mensaje final del ticket.</p>
+        <input id="config-nombre-local" class="modal-input" type="text" placeholder="Nombre del local">
+        <input id="config-moneda" class="modal-input" type="text" placeholder="Moneda (ej: $)" maxlength="5">
+        <input id="config-mensaje-ticket" class="modal-input" type="text" placeholder="Mensaje del ticket">
+        <div class="modal-actions">
+            <button class="btn btn-cerrar-modal" onclick="cerrarModalConfiguracion()">Cerrar</button>
+            <button class="btn btn-guardar-modal" onclick="guardarConfiguracionNegocio()">Guardar</button>
+        </div>
     </div>
 </div>
 
@@ -107,7 +193,18 @@
     let currentUserRole = null;
     let carrito = [];
     let total = 0;
+    let perfilNegocio = {
+        id: null,
+        nombre_local: "ALMACÉN HONEY",
+        mensaje_ticket: "Gracias por su compra.",
+        moneda: "$"
+    };
+    let ultimoTicketWhatsApp = "";
     const scanner = new Html5Qrcode("reader");
+
+    document.addEventListener("DOMContentLoaded", () => {
+        cargarPerfilNegocio();
+    });
 
     async function verificarPinEnSupabase(pin) {
         if (!pin || !pin.trim()) return null;
@@ -164,6 +261,79 @@
         window.location.href = 'inventario.html';
     }
 
+    function abrirModalConfiguracion() {
+        document.getElementById('config-nombre-local').value = perfilNegocio.nombre_local || "";
+        document.getElementById('config-moneda').value = perfilNegocio.moneda || "$";
+        document.getElementById('config-mensaje-ticket').value = perfilNegocio.mensaje_ticket || "";
+        document.getElementById('modal-config-negocio').style.display = 'flex';
+    }
+
+    function cerrarModalConfiguracion() {
+        document.getElementById('modal-config-negocio').style.display = 'none';
+    }
+
+    async function cargarPerfilNegocio() {
+        try {
+            const { data, error } = await _supabase
+                .from('perfil_negocio')
+                .select('*')
+                .order('id', { ascending: true })
+                .limit(1)
+                .maybeSingle();
+            if (error) throw error;
+            if (data) {
+                perfilNegocio.id = data.id;
+                perfilNegocio.nombre_local = data.nombre_local || perfilNegocio.nombre_local;
+                perfilNegocio.mensaje_ticket = data.mensaje_ticket || perfilNegocio.mensaje_ticket;
+                perfilNegocio.moneda = data.moneda || perfilNegocio.moneda;
+            }
+        } catch (err) {
+            console.warn("No se pudo cargar perfil_negocio:", err.message);
+        } finally {
+            aplicarPerfilNegocioEnUI();
+        }
+    }
+
+    function aplicarPerfilNegocioEnUI() {
+        document.getElementById('nombre-local-header').innerText = perfilNegocio.nombre_local || "ALMACÉN HONEY";
+        actualizarPantalla();
+    }
+
+    async function guardarConfiguracionNegocio() {
+        const nombre = document.getElementById('config-nombre-local').value.trim();
+        const moneda = document.getElementById('config-moneda').value.trim() || "$";
+        const mensaje = document.getElementById('config-mensaje-ticket').value.trim();
+
+        if (!nombre) return alert("Ingresa el nombre del local.");
+
+        const payload = {
+            nombre_local: nombre,
+            moneda: moneda,
+            mensaje_ticket: mensaje || "Gracias por su compra."
+        };
+
+        if (perfilNegocio.id) payload.id = perfilNegocio.id;
+
+        try {
+            const { data, error } = await _supabase
+                .from('perfil_negocio')
+                .upsert(payload, { onConflict: 'id' })
+                .select()
+                .single();
+            if (error) throw error;
+
+            perfilNegocio.id = data.id;
+            perfilNegocio.nombre_local = data.nombre_local;
+            perfilNegocio.mensaje_ticket = data.mensaje_ticket;
+            perfilNegocio.moneda = data.moneda || "$";
+            aplicarPerfilNegocioEnUI();
+            cerrarModalConfiguracion();
+            alert("✅ Configuración de negocio guardada");
+        } catch (err) {
+            alert("Error guardando configuración: " + err.message);
+        }
+    }
+
     function iniciarEscaneo() {
         scanner.start({ facingMode: "environment" }, { fps: 15, qrbox: { width: 250, height: 150 } }, (codigo) => {
             scanner.stop();
@@ -181,6 +351,7 @@
     function actualizarPantalla() {
         const lista = document.getElementById('lista-productos');
         const mensajeVacio = document.getElementById('mensaje-vacio');
+        const moneda = perfilNegocio.moneda || "$";
         lista.innerHTML = "";
         lista.appendChild(mensajeVacio);
         total = 0;
@@ -193,13 +364,13 @@
                 lista.innerHTML += `<div class="item">
                     <span>${prod.nombre}</span>
                     <div>
-                        <span>$${prod.precio.toFixed(2)}</span>
+                        <span>${moneda}${prod.precio.toFixed(2)}</span>
                         <button onclick="eliminarDelCarrito(${index})" style="background:none; border:none; color:var(--rojo); margin-left:10px;">✕</button>
                     </div>
                 </div>`;
             });
         }
-        document.getElementById('total-final').innerText = `$ ${total.toFixed(2)}`;
+        document.getElementById('total-final').innerText = `${moneda} ${total.toFixed(2)}`;
         calcularVuelto();
     }
 
@@ -209,14 +380,31 @@
     }
 
     function calcularVuelto() {
+        const moneda = perfilNegocio.moneda || "$";
         const pagaCon = document.getElementById('paga-con').value;
         const vuelto = pagaCon - total;
-        document.getElementById('vuelto').innerText = (vuelto >= 0) ? `$ ${vuelto.toFixed(2)}` : "Falta dinero";
+        document.getElementById('vuelto').innerText = (vuelto >= 0) ? `${moneda} ${vuelto.toFixed(2)}` : "Falta dinero";
+    }
+
+    function generarTicketWhatsApp() {
+        const nombreLocal = perfilNegocio.nombre_local || "ALMACÉN HONEY";
+        const moneda = perfilNegocio.moneda || "$";
+        const mensajeTicket = perfilNegocio.mensaje_ticket || "Gracias por su compra.";
+        const detalle = carrito.map(p => `- ${p.nombre}: ${moneda}${p.precio.toFixed(2)}`).join("\n");
+        const cuerpo = detalle || "- Sin productos";
+        return `🚀 ${nombreLocal}\nDetalle de su compra:\n${cuerpo}\nTotal: ${moneda}${total.toFixed(2)}\n${mensajeTicket}`;
+    }
+
+    function enviarTicketWhatsApp() {
+        if (!ultimoTicketWhatsApp) return alert("No hay ticket generado.");
+        const mensajeCodificado = encodeURIComponent(ultimoTicketWhatsApp);
+        window.open(`https://wa.me/?text=${mensajeCodificado}`, "_blank");
     }
 
     async function finalizarVenta(metodo) {
         if(total === 0) return alert("Carrito vacío");
         const resumenProductos = carrito.map(p => p.nombre).join(", ");
+        const ticketGenerado = generarTicketWhatsApp();
         try {
             const { error: errorVenta } = await _supabase
                 .from('ventas_honey')
@@ -228,6 +416,8 @@
                 await _supabase.from('productos_almacen').update({ stock: nuevoStock }).eq('codigo_barras', item.codigo);
             }
 
+            ultimoTicketWhatsApp = ticketGenerado;
+            document.getElementById('ticket-actions').style.display = 'block';
             alert("✅ Venta procesada por: " + currentUserRole);
             carrito = [];
             document.getElementById('paga-con').value = "";
