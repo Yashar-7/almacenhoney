@@ -387,12 +387,12 @@
     }
 
     function generarTicketWhatsApp() {
-        const nombreLocal = perfilNegocio.nombre_local || "ALMACÉN HONEY";
+        const nombreLocal = (perfilNegocio.nombre_local || "ALMACÉN HONEY").toUpperCase();
         const moneda = perfilNegocio.moneda || "$";
         const mensajeTicket = perfilNegocio.mensaje_ticket || "Gracias por su compra.";
-        const detalle = carrito.map(p => `- ${p.nombre}: ${moneda}${p.precio.toFixed(2)}`).join("\n");
+        const detalle = carrito.map(p => `- ${p.nombre}: ${moneda}${Number(p.precio).toFixed(2)}`).join("\n");
         const cuerpo = detalle || "- Sin productos";
-        return `🚀 ${nombreLocal}\nDetalle de su compra:\n${cuerpo}\nTotal: ${moneda}${total.toFixed(2)}\n${mensajeTicket}`;
+        return `🚀 *${nombreLocal}*\nDetalle de su compra:\n${cuerpo}\n*Total:* ${moneda}${Number(total).toFixed(2)}\n--------------------------\n${mensajeTicket}`;
     }
 
     function enviarTicketWhatsApp() {

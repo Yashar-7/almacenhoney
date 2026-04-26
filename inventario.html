@@ -37,6 +37,44 @@
         .tabla-inventario th { background: #444; color: var(--amarillo); padding: 10px; text-align: left; }
         .tabla-inventario td { padding: 10px; border-bottom: 1px solid #333; }
         .stock-critico { color: var(--rojo); font-weight: bold; }
+        .stock-cell {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .stock-value {
+            min-width: 20px;
+            display: inline-block;
+            text-align: center;
+            font-weight: bold;
+        }
+        .btn-stock {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            border: 1px solid transparent;
+            font-size: 0.95rem;
+            font-weight: bold;
+            line-height: 1;
+            cursor: pointer;
+            color: white;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.2);
+        }
+        .btn-stock-plus {
+            background: rgba(46, 204, 113, 0.18);
+            border-color: rgba(46, 204, 113, 0.95);
+            box-shadow: 0 0 8px rgba(46, 204, 113, 0.7);
+        }
+        .btn-stock-minus {
+            background: rgba(231, 76, 60, 0.2);
+            border-color: rgba(231, 76, 60, 0.95);
+            box-shadow: 0 0 8px rgba(231, 76, 60, 0.68);
+        }
+        .btn-stock[disabled] {
+            opacity: 0.45;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
         .capital-card { background: var(--azul); padding: 10px; border-radius: 10px; margin-bottom: 10px; text-align: center; }
         .badge-role { background: var(--amarillo); color: black; padding: 2px 10px; border-radius: 10px; font-size: 0.7rem; font-weight: bold; }
     </style>
@@ -353,11 +391,54 @@
                 <td>${p.nombre}</td>
                 ${celdaCosto}
                 <td>$${p.precio}</td>
-                <td class="${esBajo}">${p.stock}</td>
+                <td class="${esBajo}">
+                    <div class="stock-cell">
+                        <button class="btn-stock btn-stock-minus" data-codigo="${p.codigo_barras}" onclick="ajustarStockRapido(event, this, -1)" ${p.stock <= 0 ? "disabled" : ""}>-</button>
+                        <span class="stock-value">${p.stock}</span>
+                        <button class="btn-stock btn-stock-plus" data-codigo="${p.codigo_barras}" onclick="ajustarStockRapido(event, this, 1)">+</button>
+                    </div>
+                </td>
             </tr>`;
         });
         cuerpo.innerHTML = html;
         if(currentUserRole === "ADMIN") document.getElementById('total-stock-pesos').innerText = "$ " + sumaTotal.toLocaleString();
+    }
+
+    async function ajustarStockRapido(event, btn, delta) {
+        if (event) event.stopPropagation();
+        const codigo = btn?.dataset?.codigo;
+        const contenedor = btn?.closest('.stock-cell');
+        const stockEl = contenedor?.querySelector('.stock-value');
+        if (!stockEl) return;
+
+        const stockActual = parseInt(stockEl.innerText, 10) || 0;
+        const nuevoStock = stockActual + delta;
+        if (nuevoStock < 0) return;
+
+        // Optimistic UI: primero se siente instantáneo.
+        stockEl.innerText = String(nuevoStock);
+        const fila = stockEl.closest('td');
+        if (fila) {
+            fila.classList.toggle('stock-critico', nuevoStock <= 3);
+            const btnMenos = fila.querySelector('.btn-stock-minus');
+            if (btnMenos) btnMenos.disabled = nuevoStock <= 0;
+        }
+
+        const { error } = await _supabase
+            .from('productos_almacen')
+            .update({ stock: nuevoStock })
+            .eq('codigo_barras', codigo);
+
+        if (error) {
+            stockEl.innerText = String(stockActual);
+            if (fila) {
+                fila.classList.toggle('stock-critico', stockActual <= 3);
+                const btnMenos = fila.querySelector('.btn-stock-minus');
+                if (btnMenos) btnMenos.disabled = stockActual <= 0;
+            }
+            alert("No se pudo actualizar stock: " + error.message);
+            return;
+        }
     }
 
     async function verBalanceHoy() {
