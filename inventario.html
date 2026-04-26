@@ -967,102 +967,134 @@
             showToast('No se cargó la librería SheetJS (XLSX).', 'error', 3000);
             return;
         }
-        showToast('Generando archivo Excel...', 'info', 1800);
-        const { data: ventas, error } = await _supabase
-            .from('ventas_honey')
-            .select('fecha, productos, total, ganancia_neta')
-            .order('fecha', { ascending: false });
-        if (error) {
-            showToast('No se pudo exportar: ' + error.message, 'error', 3200);
-            return;
-        }
+        const wrap = document.getElementById('toast-wrap');
+        const loadingToast = document.createElement('div');
+        loadingToast.className = 'toast toast-info show';
+        loadingToast.textContent = 'Generando archivo Excel...';
+        if (wrap) wrap.appendChild(loadingToast);
 
-        const filas = [];
-        (ventas || []).forEach(v => {
-            const fechaObj = v.fecha ? new Date(v.fecha) : null;
-            const fechaLegible = fechaObj
-                ? fechaObj.toLocaleString('es-AR', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: false
-                }).replace(',', '')
-                : '-';
-            const items = String(v.productos || '')
-                .split(',')
-                .map(x => x.trim())
-                .filter(Boolean);
-            if (items.length === 0) {
-                filas.push({
-                    'Fecha': fechaLegible,
-                    'Producto': '-',
-                    'Cantidad': 0,
-                    'Total Venta': Number(v.total || 0),
-                    'Ganancia Neta': Number(v.ganancia_neta || 0)
-                });
-                return;
-            }
-            items.forEach((item, idx) => {
-                const match = item.match(/^(.*)\sx(\d+)$/i);
-                const producto = match ? match[1].trim() : item;
-                const cantidad = match ? Number(match[2]) : 1;
-                filas.push({
-                    'Fecha': idx === 0 ? fechaLegible : '',
-                    'Producto': producto,
-                    'Cantidad': cantidad,
-                    'Total Venta': idx === 0 ? Number(v.total || 0) : '',
-                    'Ganancia Neta': idx === 0 ? Number(v.ganancia_neta || 0) : ''
+        try {
+            const { data: ventas, error } = await _supabase
+                .from('ventas_honey')
+                .select('fecha, productos, total, ganancia_neta, metodo_pago')
+                .order('fecha', { ascending: false });
+            if (error) throw error;
+
+            const filas = [];
+            (ventas || []).forEach(v => {
+                const fechaObj = v.fecha ? new Date(v.fecha) : null;
+                const fechaLegible = fechaObj
+                    ? fechaObj.toLocaleString('es-AR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                    }).replace(',', '')
+                    : '-';
+                const items = String(v.productos || '')
+                    .split(',')
+                    .map(x => x.trim())
+                    .filter(Boolean);
+                if (items.length === 0) {
+                    filas.push({
+                        'Fecha': fechaLegible,
+                        'Producto': '-',
+                        'Cantidad': 0,
+                        'Total Venta': Number(v.total || 0),
+                        'Ganancia Neta': Number(v.ganancia_neta || 0)
+                    });
+                    return;
+                }
+                items.forEach((item, idx) => {
+                    const match = item.match(/^(.*)\sx(\d+)$/i);
+                    const producto = match ? match[1].trim() : item;
+                    const cantidad = match ? Number(match[2]) : 1;
+                    filas.push({
+                        'Fecha': idx === 0 ? fechaLegible : '',
+                        'Producto': producto,
+                        'Cantidad': cantidad,
+                        'Total Venta': idx === 0 ? Number(v.total || 0) : '',
+                        'Ganancia Neta': idx === 0 ? Number(v.ganancia_neta || 0) : ''
+                    });
                 });
             });
-        });
 
-        if (filas.length === 0) {
-            filas.push({ 'Fecha': '-', 'Producto': '-', 'Cantidad': 0, 'Total Venta': 0, 'Ganancia Neta': 0 });
+            if (filas.length === 0) {
+                filas.push({ 'Fecha': '-', 'Producto': '-', 'Cantidad': 0, 'Total Venta': 0, 'Ganancia Neta': 0 });
+            }
+
+            const headersDetalle = ['Fecha', 'Producto', 'Cantidad', 'Total Venta', 'Ganancia Neta'];
+            const hoja = XLSX.utils.json_to_sheet(filas, { header: headersDetalle });
+            const rango = XLSX.utils.decode_range(hoja['!ref']);
+            for (let c = rango.s.c; c <= rango.e.c; c++) {
+                const celda = XLSX.utils.encode_cell({ r: 0, c });
+                if (!hoja[celda]) continue;
+                hoja[celda].s = { font: { bold: true } };
+            }
+            autoAjustarColumnas(hoja, filas, headersDetalle);
+
+            const totalVentas = (ventas || []).reduce((acc, v) => acc + Number(v.total || 0), 0);
+            const totalGanancia = (ventas || []).reduce((acc, v) => acc + Number(v.ganancia_neta || 0), 0);
+            const totalEfectivo = (ventas || []).filter(v => v.metodo_pago === 'Efectivo').reduce((acc, v) => acc + Number(v.total || 0), 0);
+            const totalQr = (ventas || []).filter(v => v.metodo_pago === 'QR').reduce((acc, v) => acc + Number(v.total || 0), 0);
+            const totalTarjeta = (ventas || []).filter(v => v.metodo_pago === 'Tarjeta').reduce((acc, v) => acc + Number(v.total || 0), 0);
+            const resumenFilas = [
+                { 'Concepto': 'Total Ventas 💰', 'Valor': Number(totalVentas.toFixed(2)) },
+                { 'Concepto': 'Ganancia Neta 📈', 'Valor': Number(totalGanancia.toFixed(2)) },
+                { 'Concepto': '', 'Valor': '' },
+                { 'Concepto': 'Desglose por Método de Pago 💳', 'Valor': 'Monto' },
+                { 'Concepto': 'Efectivo', 'Valor': Number(totalEfectivo.toFixed(2)) },
+                { 'Concepto': 'QR', 'Valor': Number(totalQr.toFixed(2)) },
+                { 'Concepto': 'Tarjeta', 'Valor': Number(totalTarjeta.toFixed(2)) }
+            ];
+            const headersResumen = ['Concepto', 'Valor'];
+            const hojaResumen = XLSX.utils.json_to_sheet(resumenFilas, { header: headersResumen });
+            const celdaA1 = XLSX.utils.encode_cell({ r: 0, c: 0 });
+            const celdaB1 = XLSX.utils.encode_cell({ r: 0, c: 1 });
+            if (hojaResumen[celdaA1]) hojaResumen[celdaA1].s = { font: { bold: true } };
+            if (hojaResumen[celdaB1]) hojaResumen[celdaB1].s = { font: { bold: true } };
+            autoAjustarColumnas(hojaResumen, resumenFilas, headersResumen);
+
+            const libro = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(libro, hoja, 'Reporte de Ventas Honey');
+            XLSX.utils.book_append_sheet(libro, hojaResumen, 'Balance');
+            const hoy = new Date();
+            const fechaArchivo = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+            const nombreArchivo = `Ventas_Honey_${fechaArchivo}.xlsx`;
+
+            const excelArray = XLSX.write(libro, {
+                bookType: 'xlsx',
+                type: 'array',
+                cellStyles: true
+            });
+            const blob = new Blob([excelArray], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+            if (window.navigator && window.navigator.msSaveOrOpenBlob) {
+                window.navigator.msSaveOrOpenBlob(blob, nombreArchivo);
+            } else {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = nombreArchivo;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+            showToast('Excel generado correctamente.', 'success', 2200);
+        } catch (err) {
+            showToast('No se pudo exportar: ' + (err.message || err), 'error', 3200);
+        } finally {
+            if (loadingToast && loadingToast.parentNode) {
+                loadingToast.classList.remove('show');
+                setTimeout(() => {
+                    if (loadingToast.parentNode) loadingToast.parentNode.removeChild(loadingToast);
+                }, 180);
+            }
         }
-
-        const headersDetalle = ['Fecha', 'Producto', 'Cantidad', 'Total Venta', 'Ganancia Neta'];
-        const hoja = XLSX.utils.json_to_sheet(filas, {
-            header: headersDetalle
-        });
-        const rango = XLSX.utils.decode_range(hoja['!ref']);
-        for (let c = rango.s.c; c <= rango.e.c; c++) {
-            const celda = XLSX.utils.encode_cell({ r: 0, c });
-            if (!hoja[celda]) continue;
-            hoja[celda].s = { font: { bold: true } };
-        }
-        autoAjustarColumnas(hoja, filas, headersDetalle);
-
-        const totalVentas = (ventas || []).reduce((acc, v) => acc + Number(v.total || 0), 0);
-        const totalGanancia = (ventas || []).reduce((acc, v) => acc + Number(v.ganancia_neta || 0), 0);
-        const totalEfectivo = (ventas || []).filter(v => v.metodo_pago === 'Efectivo').reduce((acc, v) => acc + Number(v.total || 0), 0);
-        const totalQr = (ventas || []).filter(v => v.metodo_pago === 'QR').reduce((acc, v) => acc + Number(v.total || 0), 0);
-        const totalTarjeta = (ventas || []).filter(v => v.metodo_pago === 'Tarjeta').reduce((acc, v) => acc + Number(v.total || 0), 0);
-        const resumenFilas = [
-            { 'Concepto': 'Total de Ventas del periodo', 'Valor': Number(totalVentas.toFixed(2)) },
-            { 'Concepto': 'Ganancia Neta Total acumulada', 'Valor': Number(totalGanancia.toFixed(2)) },
-            { 'Concepto': '', 'Valor': '' },
-            { 'Concepto': 'Comparativo Métodos de Pago', 'Valor': 'Monto' },
-            { 'Concepto': 'Efectivo', 'Valor': Number(totalEfectivo.toFixed(2)) },
-            { 'Concepto': 'QR', 'Valor': Number(totalQr.toFixed(2)) },
-            { 'Concepto': 'Tarjeta', 'Valor': Number(totalTarjeta.toFixed(2)) }
-        ];
-        const headersResumen = ['Concepto', 'Valor'];
-        const hojaResumen = XLSX.utils.json_to_sheet(resumenFilas, { header: headersResumen });
-        const celdaA1 = XLSX.utils.encode_cell({ r: 0, c: 0 });
-        const celdaB1 = XLSX.utils.encode_cell({ r: 0, c: 1 });
-        if (hojaResumen[celdaA1]) hojaResumen[celdaA1].s = { font: { bold: true } };
-        if (hojaResumen[celdaB1]) hojaResumen[celdaB1].s = { font: { bold: true } };
-        autoAjustarColumnas(hojaResumen, resumenFilas, headersResumen);
-
-        const libro = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(libro, hoja, 'Reporte de Ventas Honey');
-        XLSX.utils.book_append_sheet(libro, hojaResumen, 'Resumen Financiero');
-        const hoy = new Date();
-        const fechaArchivo = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
-        XLSX.writeFile(libro, `Ventas_Honey_${fechaArchivo}.xlsx`, { cellStyles: true });
-        showToast('Excel generado correctamente.', 'success', 2200);
     }
 
     async function verHistorial() {
