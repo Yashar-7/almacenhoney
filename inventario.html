@@ -3,22 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#f39c12">
+    <meta name="theme-color" content="#0f172a">
     <title>Panel Honey - Gestión PRO Segura</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
     <style>
-        :root { --naranja: #f39c12; --amarillo: #f1c40f; --negro: #1a1a1a; --rojo: #e74c3c; --verde: #2ecc71; --azul: #2980b9; --morado: #8e44ad; }
-        body { font-family: sans-serif; background: var(--negro); color: white; padding: 10px; text-align: center; margin:0; }
-        .card { background: #2c3e50; padding: 15px; border-radius: 15px; margin-bottom: 15px; text-align: left; border: 1px solid #444; }
+        :root {
+            --negro: #0a0f1f;
+            --gris: #111827;
+            --cian: #22d3ee;
+            --violeta: #8b5cf6;
+            --acento: #fbbf24;
+            --rojo: #ff3b3b;
+            --verde: #39ff88;
+            --azul: #38bdf8;
+            --morado: #c084fc;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 10px;
+            text-align: center;
+            color: #e5e7eb;
+            min-height: 100vh;
+            box-sizing: border-box;
+            background: radial-gradient(circle at top right, rgba(139, 92, 246, 0.18), transparent 45%),
+                        radial-gradient(circle at bottom left, rgba(34, 211, 238, 0.12), transparent 40%),
+                        var(--negro);
+        }
+        .card {
+            background: rgba(17, 24, 39, 0.92);
+            padding: 15px;
+            border-radius: 15px;
+            margin-bottom: 15px;
+            text-align: left;
+            border: 1px solid var(--cian);
+            box-shadow: 0 0 14px rgba(34, 211, 238, 0.18), 0 0 12px rgba(139, 92, 246, 0.12);
+        }
         
         .admin-only { display: none; } 
         
-        input { width: 100%; padding: 10px; margin: 5px 0; border-radius: 8px; border: none; box-sizing: border-box; font-size: 1rem; background: white; color: black; }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            box-sizing: border-box;
+            font-size: 1rem;
+            background: #0f172a;
+            color: #e5e7eb;
+        }
         .btn { width: 100%; padding: 12px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 5px; }
-        .btn-scan { background: var(--amarillo); color: black; }
+        .btn-scan {
+            background: linear-gradient(90deg, #06b6d4, #8b5cf6);
+            color: #fff;
+            border: 1px solid #7ef9ff;
+            box-shadow: 0 0 12px rgba(126, 249, 255, 0.38);
+        }
         .btn-save { background: var(--verde); color: white; }
         .btn-delete { background: var(--rojo); color: white; margin-top: 10px; }
         .btn-gasto { background: var(--rojo); color: white; }
@@ -33,19 +77,44 @@
             border: 1px solid #7ef9ff;
             box-shadow: 0 0 10px rgba(126, 249, 255, 0.34);
         }
-        .btn-caja { background: var(--naranja); color: white; }
+        .btn-caja {
+            background: linear-gradient(90deg, #0e7490, #6d28d9);
+            color: #fff;
+            border: 1px solid #7ef9ff;
+            box-shadow: 0 0 12px rgba(126, 249, 255, 0.3);
+        }
         .btn-excel { background: #1d6f42; color: white; }
-        .btn-lista { background: var(--azul); color: white; }
-        .btn-nav { background: #555; color: white; margin-bottom: 10px; }
+        .btn-lista {
+            background: rgba(14, 165, 233, 0.22);
+            color: #7ef9ff;
+            border: 1px solid #22d3ee;
+            box-shadow: 0 0 10px rgba(34, 211, 238, 0.35);
+        }
+        .btn-nav {
+            background: rgba(30, 41, 59, 0.95);
+            color: #cbd5e1;
+            border: 1px solid #475569;
+            margin-bottom: 10px;
+        }
         
-        h2, h3 { color: var(--amarillo); margin: 5px 0; }
+        h2, h3 {
+            color: #7ef9ff;
+            margin: 5px 0;
+            text-shadow: 0 0 10px rgba(126, 249, 255, 0.25);
+        }
         #resultado-caja { font-size: 0.9rem; margin-top: 10px; background: #000; padding: 12px; border-radius: 10px; }
         .ganancia-total { color: var(--verde); font-size: 1.6rem; font-weight: bold; display: block; text-align: center; margin-top: 5px; }
         .grid-metodos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; border-top: 1px solid #333; padding-top: 10px; }
         
         .tabla-contenedor { overflow-x: auto; margin-top: 10px; background: #1a1a1a; border-radius: 10px; }
         .tabla-inventario { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-        .tabla-inventario th { background: #444; color: var(--amarillo); padding: 10px; text-align: left; }
+        .tabla-inventario th {
+            background: rgba(15, 23, 42, 0.95);
+            color: #7ef9ff;
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid rgba(34, 211, 238, 0.35);
+        }
         .tabla-inventario td { padding: 10px; border-bottom: 1px solid #333; }
         .stock-ok { color: #39ff88; font-weight: bold; text-shadow: 0 0 8px rgba(57, 255, 136, 0.85); }
         .stock-low { color: #ffb347; font-weight: bold; text-shadow: 0 0 8px rgba(255, 179, 71, 0.85); }
@@ -128,7 +197,7 @@
             color: #fff;
             background: rgba(20, 24, 34, 0.96);
             border: 1px solid #2d3748;
-            box-shadow: 0 0 12px rgba(241, 196, 15, 0.28);
+            box-shadow: 0 0 12px rgba(34, 211, 238, 0.22);
             transform: translateX(10px);
             opacity: 0;
             transition: transform .18s ease, opacity .18s ease;
@@ -136,7 +205,7 @@
         .toast.show { transform: translateX(0); opacity: 1; }
         .toast-success { border-color: #39ff88; box-shadow: 0 0 12px rgba(57, 255, 136, 0.55); }
         .toast-error { border-color: #ff3b3b; box-shadow: 0 0 12px rgba(255, 59, 59, 0.62); }
-        .toast-info { border-color: #f1c40f; box-shadow: 0 0 12px rgba(241, 196, 15, 0.48); }
+        .toast-info { border-color: #22d3ee; box-shadow: 0 0 12px rgba(34, 211, 238, 0.42); }
         .btn-ajuste {
             background: rgba(14, 165, 233, 0.18);
             color: #7ef9ff;
@@ -312,8 +381,56 @@
             padding: 10px;
             margin-bottom: 10px;
         }
-        .capital-card { background: var(--azul); padding: 10px; border-radius: 10px; margin-bottom: 10px; text-align: center; }
-        .badge-role { background: var(--amarillo); color: black; padding: 2px 10px; border-radius: 10px; font-size: 0.7rem; font-weight: bold; }
+        .deuda-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid #334155;
+            padding: 7px 0;
+        }
+        .deuda-item:last-child { border-bottom: none; }
+        .deuda-nombre {
+            color: #e2e8f0;
+            font-size: 0.82rem;
+        }
+        .deuda-monto {
+            color: #fca5a5;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .btn-pagar-deuda {
+            width: auto;
+            margin: 0;
+            padding: 6px 9px;
+            font-size: 0.75rem;
+            border-radius: 8px;
+            background: rgba(57, 255, 136, 0.2);
+            border: 1px solid #39ff88;
+            color: #d1fae5;
+            box-shadow: 0 0 8px rgba(57, 255, 136, 0.34);
+        }
+        .capital-card {
+            background: rgba(15, 23, 42, 0.9);
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            text-align: center;
+            border: 1px solid rgba(34, 211, 238, 0.45);
+            color: #e2e8f0;
+            box-shadow: 0 0 10px rgba(34, 211, 238, 0.2);
+        }
+        .badge-role {
+            background: rgba(15, 23, 42, 0.9);
+            color: #7ef9ff;
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            border: 1px solid var(--cian);
+            border-left: 3px solid var(--acento);
+            box-shadow: 0 0 8px rgba(34, 211, 238, 0.25);
+        }
     </style>
 </head>
 <body>
@@ -330,26 +447,26 @@
 
     <h2>🍯 Gestión Almacén Honey</h2>
     
-    <div id="reader" style="width: 100%; border-radius: 15px; overflow: hidden; border: 2px solid var(--amarillo); margin-bottom:10px;"></div>
+    <div id="reader" style="width: 100%; border-radius: 15px; overflow: hidden; border: 2px solid #22d3ee; box-shadow: 0 0 12px rgba(34,211,238,0.3); margin-bottom:10px;"></div>
     <button class="btn btn-scan" onclick="iniciarEscaneo()">📷 ESCANEAR PRODUCTO</button>
 
     <div class="card admin-only">
         <h3>📦 Editor de Productos</h3>
-        <label style="font-size: 0.8rem; color: var(--amarillo);">Código de Barras (Manual o Scan):</label>
+        <label style="font-size: 0.8rem; color: #cbd5e1;">Código de Barras (Manual o Scan):</label>
         <input type="text" id="cod" placeholder="Escribe o escanea código" onchange="verificarExistencia(this.value)">
         
-        <label style="font-size: 0.8rem; color: var(--amarillo);">Nombre del Producto:</label>
+        <label style="font-size: 0.8rem; color: #cbd5e1;">Nombre del Producto:</label>
         <input type="text" id="nom" placeholder="Nombre del producto">
         
-        <label style="font-size: 0.8rem; color: var(--amarillo);">Costo (Lo que pagaste):</label>
+        <label style="font-size: 0.8rem; color: #cbd5e1;">Costo (Lo que pagaste):</label>
         <input type="number" id="cos" placeholder="Costo $" step="0.01">
         
-        <label style="font-size: 0.8rem; color: var(--amarillo);">Venta (Al público):</label>
+        <label style="font-size: 0.8rem; color: #cbd5e1;">Venta (Al público):</label>
         <input type="number" id="pre" placeholder="Venta $" step="0.01">
         
-        <label style="font-size: 0.8rem; color: var(--amarillo);">Stock Actual:</label>
+        <label style="font-size: 0.8rem; color: #cbd5e1;">Stock Actual:</label>
         <input type="number" id="sto" placeholder="Cantidad en stock">
-        <label style="font-size: 0.8rem; color: var(--amarillo);">Categoría:</label>
+        <label style="font-size: 0.8rem; color: #cbd5e1;">Categoría:</label>
         <input type="text" id="cat" placeholder="Ej: Bebidas, Limpieza, Almacén">
         
         <div style="display: flex; gap: 10px;">
@@ -400,7 +517,7 @@
                 <span style="color:var(--verde)">Efe: <b id="v-efe">$0</b></span>
                 <span style="color:var(--azul)">Tar: <b id="v-tar">$0</b></span>
                 <span style="color:var(--morado)">QR: <b id="v-qr">$0</b></span>
-                <span style="color:var(--naranja)">Trans: <b id="v-tra">$0</b></span>
+                <span style="color:#c084fc">Trans: <b id="v-tra">$0</b></span>
             </div>
             <div class="admin-only" style="text-align:center; margin-top:10px; border-top: 1px solid #333; padding-top:5px;">
                 <small>GANANCIA REAL (Venta - Costo - Gastos):</small>
@@ -428,6 +545,10 @@
         <div class="sidebar-block admin-only">
             <h3 style="margin:0 0 8px 0;">📅 Historial Semanal (Neto)</h3>
             <div id="lista-historial"></div>
+        </div>
+        <div class="sidebar-block admin-only">
+            <h3 style="margin:0 0 8px 0;">💳 Cuentas Corrientes</h3>
+            <div id="lista-deudores"></div>
         </div>
     </aside>
 
@@ -699,6 +820,7 @@
         aplicarSeguridad();
         setFechaGastoHoy();
         cargarListaMercaderia();
+        cargarCuentasCorrientes();
     }
 
     window.onload = () => { verificarSesion(); };
@@ -875,6 +997,108 @@
             setFechaGastoHoy();
             verBalanceHoy();
         }
+    }
+
+    async function cargarCuentasCorrientes() {
+        const contenedor = document.getElementById('lista-deudores');
+        if (!contenedor) return;
+        contenedor.innerHTML = "Cargando...";
+        const { data, error } = await _supabase
+            .from('clientes_deuda')
+            .select('nombre, monto')
+            .eq('user_id', currentUserId);
+        if (error) {
+            contenedor.innerHTML = "<small style='color:#94a3b8;'>No se pudo cargar.</small>";
+            return;
+        }
+        const resumen = {};
+        (data || []).forEach(d => {
+            const nombre = String(d.nombre || '').trim();
+            if (!nombre) return;
+            resumen[nombre] = (resumen[nombre] || 0) + Number(d.monto || 0);
+        });
+        const entries = Object.entries(resumen)
+            .map(([nombre, monto]) => ({ nombre, monto: Number(monto.toFixed(2)) }))
+            .filter(x => x.monto > 0)
+            .sort((a, b) => b.monto - a.monto);
+        if (entries.length === 0) {
+            contenedor.innerHTML = "<small style='color:#94a3b8;'>Sin deudas pendientes.</small>";
+            return;
+        }
+        contenedor.innerHTML = entries.map(e => `
+            <div class="deuda-item">
+                <div>
+                    <div class="deuda-nombre">${e.nombre}</div>
+                    <div class="deuda-monto">$ ${e.monto.toFixed(2)}</div>
+                </div>
+                <button class="btn btn-pagar-deuda" onclick="registrarPagoDeuda('${e.nombre.replace(/'/g, "\\'")}', ${e.monto})">💵 Pagar</button>
+            </div>
+        `).join("");
+    }
+
+    async function registrarPagoDeuda(nombreCliente, saldoActual) {
+        const entrada = prompt(`¿Cuánto paga ${nombreCliente}? (Saldo: $${Number(saldoActual).toFixed(2)})`);
+        if (entrada === null) return;
+        const montoPago = Number(String(entrada).replace(',', '.'));
+        if (!Number.isFinite(montoPago) || montoPago <= 0) {
+            showToast('Monto inválido.', 'error');
+            return;
+        }
+        if (montoPago > Number(saldoActual)) {
+            showToast('No puede pagar más que el saldo.', 'error');
+            return;
+        }
+
+        const { data: deudas, error: errDeudas } = await _supabase
+            .from('clientes_deuda')
+            .select('id, monto, fecha')
+            .eq('user_id', currentUserId)
+            .eq('nombre', nombreCliente)
+            .order('fecha', { ascending: true });
+        if (errDeudas) {
+            showToast('No se pudo leer la deuda.', 'error', 3000);
+            return;
+        }
+
+        let restante = montoPago;
+        for (const deuda of (deudas || [])) {
+            if (restante <= 0) break;
+            const montoDeuda = Number(deuda.monto || 0);
+            if (montoDeuda <= 0) continue;
+            if (restante >= montoDeuda) {
+                const { error } = await _supabase.from('clientes_deuda').delete().eq('id', deuda.id).eq('user_id', currentUserId);
+                if (error) {
+                    showToast('Error al aplicar pago.', 'error', 3000);
+                    return;
+                }
+                restante -= montoDeuda;
+            } else {
+                const nuevoMonto = Number((montoDeuda - restante).toFixed(2));
+                const { error } = await _supabase.from('clientes_deuda').update({ monto: nuevoMonto }).eq('id', deuda.id).eq('user_id', currentUserId);
+                if (error) {
+                    showToast('Error al actualizar deuda.', 'error', 3000);
+                    return;
+                }
+                restante = 0;
+            }
+        }
+
+        const { error: errVenta } = await _supabase.from('ventas_honey').insert([{
+            user_id: currentUserId,
+            productos: `Cobro deuda - ${nombreCliente}`,
+            total: Number(montoPago.toFixed(2)),
+            metodo_pago: 'Efectivo',
+            ganancia_neta: 0
+        }]);
+        if (errVenta) {
+            showToast('Pago aplicado, pero falló el impacto en caja.', 'error', 3200);
+            await cargarCuentasCorrientes();
+            return;
+        }
+
+        showToast('Pago registrado en deuda y caja.', 'success');
+        await cargarCuentasCorrientes();
+        await verBalanceHoy();
     }
 
     async function cargarListaMercaderia() {
