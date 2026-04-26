@@ -220,6 +220,12 @@
         const { data: { user } } = await _supabase.auth.getUser();
         if (user) window.location.href = 'index.html';
     });
+
+    _supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) {
+            window.location.href = 'index.html';
+        }
+    });
 </script>
 </body>
 </html>

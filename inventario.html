@@ -22,6 +22,17 @@
         .btn-save { background: var(--verde); color: white; }
         .btn-delete { background: var(--rojo); color: white; margin-top: 10px; }
         .btn-gasto { background: var(--rojo); color: white; }
+        .gasto-neon input {
+            background: rgba(15, 23, 42, 0.95);
+            color: #e2e8f0;
+            border: 1px solid #22d3ee;
+            box-shadow: 0 0 8px rgba(34, 211, 238, 0.2);
+        }
+        .gasto-neon .btn-gasto {
+            background: linear-gradient(90deg, #06b6d4, #8b5cf6);
+            border: 1px solid #7ef9ff;
+            box-shadow: 0 0 10px rgba(126, 249, 255, 0.34);
+        }
         .btn-caja { background: var(--naranja); color: white; }
         .btn-excel { background: #1d6f42; color: white; }
         .btn-lista { background: var(--azul); color: white; }
@@ -333,9 +344,10 @@
     <div class="card">
         <h3>💰 Caja y Rentabilidad</h3>
         <div class="admin-only">
-            <div style="display: flex; gap: 5px; margin-bottom:15px;">
+            <div class="gasto-neon" style="display: flex; gap: 5px; margin-bottom:10px;">
                 <input type="text" id="gasto-desc" placeholder="Gasto en...">
                 <input type="number" id="gasto-monto" placeholder="$" style="width:100px;">
+                <input type="date" id="gasto-fecha" style="width:150px;">
             </div>
             <button class="btn btn-gasto" onclick="guardarGasto()">🧾 ANOTAR GASTO</button>
             <hr style="border:0; border-top:1px solid #444; margin: 15px 0;">
@@ -623,10 +635,27 @@
         currentUserId = user.id;
         currentUserRole = user.user_metadata?.role || 'ADMIN';
         aplicarSeguridad();
+        setFechaGastoHoy();
         cargarListaMercaderia();
     }
 
     window.onload = () => { verificarSesion(); };
+
+    _supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_OUT' || !session?.user) {
+            window.location.href = 'login.html';
+        }
+        if (event === 'SIGNED_IN' && session?.user && window.location.pathname.endsWith('login.html')) {
+            window.location.href = 'index.html';
+        }
+    });
+
+    function setFechaGastoHoy() {
+        const campo = document.getElementById('gasto-fecha');
+        if (!campo) return;
+        const hoy = new Date();
+        campo.value = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+    }
 
     function aplicarSeguridad() {
         document.getElementById('roleBadge').innerText = "ROL: " + (currentUserRole || '—');
@@ -768,17 +797,20 @@
         }
         const desc = document.getElementById('gasto-desc').value?.trim();
         const monto = parseFloat(document.getElementById('gasto-monto').value);
+        const fechaInput = document.getElementById('gasto-fecha').value;
         if (!desc || isNaN(monto) || monto <= 0) {
             showToast('Indica descripción y monto válido.', 'error');
             return;
         }
-        const { error } = await _supabase.from('gastos_honey').insert([{ descripcion: desc, monto: monto, fecha: new Date().toISOString(), user_id: currentUserId }]);
+        const fechaIso = fechaInput ? new Date(`${fechaInput}T12:00:00`).toISOString() : new Date().toISOString();
+        const { error } = await _supabase.from('gastos_honey').insert([{ descripcion: desc, monto: monto, fecha: fechaIso, user_id: currentUserId }]);
         if (error) {
             showToast('Error al guardar gasto: ' + error.message, 'error', 3000);
         } else {
             showToast('Gasto registrado', 'success');
             document.getElementById('gasto-desc').value = '';
             document.getElementById('gasto-monto').value = '';
+            setFechaGastoHoy();
             verBalanceHoy();
         }
     }
