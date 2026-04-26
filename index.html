@@ -18,10 +18,55 @@
         .header { text-align: center; border-bottom: 4px solid var(--amarillo); padding-bottom: 10px; margin-bottom: 15px; }
         .header img { height: 70px; width: auto; margin-bottom: 5px; }
         .header h1 { color: var(--amarillo); margin: 0; font-size: 1.5rem; letter-spacing: 1px; }
+        .utilidad-card {
+            margin: 8px auto 0 auto;
+            width: fit-content;
+            font-size: 0.78rem;
+            color: #7ef9ff;
+            border: 1px solid #7ef9ff;
+            border-radius: 999px;
+            padding: 5px 12px;
+            box-shadow: 0 0 12px rgba(126, 249, 255, 0.55), 0 0 18px rgba(139, 92, 246, 0.32);
+            background: rgba(17, 24, 39, 0.7);
+            display: none;
+        }
+        .utilidad-card b {
+            color: #c084fc;
+            text-shadow: 0 0 8px rgba(192, 132, 252, 0.85);
+        }
 
         #reader { width: 100%; border-radius: 15px; border: 3px solid var(--naranja); background: #000; overflow: hidden; }
         .carrito { background: var(--gris); border-radius: 15px; padding: 15px; margin-top: 15px; min-height: 80px; max-height: 180px; overflow-y: auto; }
         .item { display: flex; justify-content: space-between; border-bottom: 1px solid #444; padding: 8px 0; font-size: 0.9rem; }
+        .item-left { display: flex; flex-direction: column; gap: 3px; max-width: 60%; }
+        .item-right { display: flex; align-items: center; gap: 8px; }
+        .qty-box { display: inline-flex; align-items: center; gap: 4px; }
+        .qty-btn {
+            width: 23px;
+            height: 23px;
+            border-radius: 6px;
+            border: 1px solid #6d28d9;
+            background: rgba(109, 40, 217, 0.18);
+            color: #c4b5fd;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(109, 40, 217, 0.45);
+        }
+        .qty-input {
+            width: 48px;
+            margin: 0;
+            padding: 5px 4px;
+            font-size: 0.85rem;
+            text-align: center;
+            background: #0f172a;
+            color: #7ef9ff;
+            border: 1px solid #0ea5e9;
+            border-radius: 6px;
+        }
+        .item-subtotal {
+            color: #7ef9ff;
+            font-weight: bold;
+        }
         
         .seccion-pago { background: var(--naranja); color: black; border-radius: 15px; padding: 15px; margin-top: 15px; text-align: center; }
         .total-grande { font-size: 2.2rem; font-weight: bold; margin: 5px 0; }
@@ -167,6 +212,7 @@
         </div>
         <img src="almacenhoney.png" alt="Logo Honey">
         <h1 id="nombre-local-header">ALMACÉN HONEY</h1>
+        <div id="utilidad-dia-card" class="utilidad-card">Utilidad del Día: <b id="utilidad-dia-monto">$ 0.00</b></div>
     </div>
 
     <div onclick="irAInventario()" class="btn-float">📦</div>
@@ -251,6 +297,11 @@
         cargarPerfilNegocio();
     });
 
+    function formatoMoneda(valor) {
+        const moneda = perfilNegocio.moneda || "$";
+        return `${moneda}${Number(valor || 0).toFixed(2)}`;
+    }
+
     async function verificarPinEnSupabase(pin) {
         if (!pin || !pin.trim()) return null;
         const { data, error } = await _supabase
@@ -285,6 +336,10 @@
                 document.getElementById('loginOverlay').style.display = 'none';
                 document.getElementById('appContent').style.display = 'block';
                 document.getElementById('roleDisplay').innerText = "ROL: " + currentUserRole;
+                if (currentUserRole === "ADMIN") {
+                    document.getElementById('utilidad-dia-card').style.display = 'inline-block';
+                    await cargarUtilidadDelDia();
+                }
             } else {
                 errorMsg.style.display = 'block';
                 pinInput.value = "";
@@ -341,7 +396,28 @@
 
     function aplicarPerfilNegocioEnUI() {
         document.getElementById('nombre-local-header').innerText = perfilNegocio.nombre_local || "ALMACÉN HONEY";
+        const utilidadActual = document.getElementById('utilidad-dia-monto').dataset.valor || "0";
+        document.getElementById('utilidad-dia-monto').innerText = formatoMoneda(utilidadActual);
         actualizarPantalla();
+    }
+
+    async function cargarUtilidadDelDia() {
+        if (currentUserRole !== "ADMIN") return;
+        const inicio = new Date();
+        inicio.setHours(0, 0, 0, 0);
+        try {
+            const { data, error } = await _supabase
+                .from('ventas_honey')
+                .select('ganancia_neta')
+                .gte('fecha', inicio.toISOString());
+            if (error) throw error;
+            const utilidad = (data || []).reduce((acc, v) => acc + Number(v.ganancia_neta || 0), 0);
+            const nodo = document.getElementById('utilidad-dia-monto');
+            nodo.dataset.valor = String(utilidad);
+            nodo.innerText = formatoMoneda(utilidad);
+        } catch (err) {
+            console.warn("No se pudo cargar utilidad del día:", err.message);
+        }
     }
 
     async function guardarConfiguracionNegocio() {
@@ -389,14 +465,25 @@
     async function buscarProducto(codigo) {
         const { data, error } = await _supabase.from('productos_almacen').select('*').eq('codigo_barras', codigo).single();
         if (error || !data) { showToast("Producto no registrado.", "error"); return; }
-        carrito.push({ nombre: data.nombre, precio: parseFloat(data.precio), codigo: data.codigo_barras, stock_actual: data.stock });
+        const existente = carrito.findIndex(p => p.codigo === data.codigo_barras);
+        if (existente >= 0) {
+            carrito[existente].cantidad += 1;
+        } else {
+            carrito.push({
+                nombre: data.nombre,
+                precio: parseFloat(data.precio),
+                precio_costo: parseFloat(data.precio_costo || 0),
+                codigo: data.codigo_barras,
+                stock_actual: Number(data.stock || 0),
+                cantidad: 1
+            });
+        }
         actualizarPantalla();
     }
 
     function actualizarPantalla() {
         const lista = document.getElementById('lista-productos');
         const mensajeVacio = document.getElementById('mensaje-vacio');
-        const moneda = perfilNegocio.moneda || "$";
         lista.innerHTML = "";
         lista.appendChild(mensajeVacio);
         total = 0;
@@ -405,17 +492,26 @@
         } else {
             mensajeVacio.style.display = 'none';
             carrito.forEach((prod, index) => {
-                total += prod.precio;
+                const subtotal = Number(prod.precio) * Number(prod.cantidad || 1);
+                total += subtotal;
                 lista.innerHTML += `<div class="item">
-                    <span>${prod.nombre}</span>
-                    <div>
-                        <span>${moneda}${prod.precio.toFixed(2)}</span>
-                        <button onclick="eliminarDelCarrito(${index})" style="background:none; border:none; color:var(--rojo); margin-left:10px;">✕</button>
+                    <div class="item-left">
+                        <span>${prod.nombre}</span>
+                        <span style="color:#cbd5e1; font-size:0.74rem;">Unit: ${formatoMoneda(prod.precio)}</span>
                     </div>
+                    <div class="item-right">
+                        <div class="qty-box">
+                            <button class="qty-btn" onclick="ajustarCantidad(${index}, -1)">-</button>
+                            <input class="qty-input" type="number" min="1" value="${prod.cantidad || 1}" onchange="actualizarCantidadManual(${index}, this.value)">
+                            <button class="qty-btn" onclick="ajustarCantidad(${index}, 1)">+</button>
+                        </div>
+                        <span class="item-subtotal">${formatoMoneda(subtotal)}</span>
+                        <button onclick="eliminarDelCarrito(${index})" style="background:none; border:none; color:var(--rojo); margin-left:10px;">✕</button>
+                    </div> 
                 </div>`;
             });
         }
-        document.getElementById('total-final').innerText = `${moneda} ${total.toFixed(2)}`;
+        document.getElementById('total-final').innerText = formatoMoneda(total);
         calcularVuelto();
     }
 
@@ -424,20 +520,37 @@
         actualizarPantalla();
     }
 
+    function ajustarCantidad(index, delta) {
+        if (!carrito[index]) return;
+        const actual = Number(carrito[index].cantidad || 1);
+        const nuevaCantidad = Math.max(1, actual + delta);
+        carrito[index].cantidad = nuevaCantidad;
+        actualizarPantalla();
+    }
+
+    function actualizarCantidadManual(index, valor) {
+        if (!carrito[index]) return;
+        const nuevaCantidad = parseInt(valor, 10);
+        carrito[index].cantidad = Number.isFinite(nuevaCantidad) && nuevaCantidad > 0 ? nuevaCantidad : 1;
+        actualizarPantalla();
+    }
+
     function calcularVuelto() {
-        const moneda = perfilNegocio.moneda || "$";
         const pagaCon = document.getElementById('paga-con').value;
         const vuelto = pagaCon - total;
-        document.getElementById('vuelto').innerText = (vuelto >= 0) ? `${moneda} ${vuelto.toFixed(2)}` : "Falta dinero";
+        document.getElementById('vuelto').innerText = (vuelto >= 0) ? formatoMoneda(vuelto) : "Falta dinero";
     }
 
     function generarTicketWhatsApp() {
         const nombreLocal = (perfilNegocio.nombre_local || "ALMACÉN HONEY").toUpperCase();
-        const moneda = perfilNegocio.moneda || "$";
         const mensajeTicket = perfilNegocio.mensaje_ticket || "Gracias por su compra.";
-        const detalle = carrito.map(p => `- ${p.nombre}: ${moneda}${Number(p.precio).toFixed(2)}`).join("\n");
+        const detalle = carrito.map(p => {
+            const cantidad = Number(p.cantidad || 1);
+            const subtotal = Number(p.precio) * cantidad;
+            return `- ${p.nombre} x${cantidad}: ${formatoMoneda(subtotal)}`;
+        }).join("\n");
         const cuerpo = detalle || "- Sin productos";
-        return `🚀 *${nombreLocal}*\nDetalle de su compra:\n${cuerpo}\n*Total:* ${moneda}${Number(total).toFixed(2)}\n--------------------------\n${mensajeTicket}`;
+        return `🚀 *${nombreLocal}*\nDetalle de su compra:\n${cuerpo}\n*Total:* ${formatoMoneda(total)}\n--------------------------\n${mensajeTicket}`;
     }
 
     function enviarTicketWhatsApp() {
@@ -448,22 +561,35 @@
 
     async function finalizarVenta(metodo) {
         if(total === 0) return showToast("Carrito vacío", "error");
-        const resumenProductos = carrito.map(p => p.nombre).join(", ");
+        const resumenProductos = carrito.map(p => `${p.nombre} x${p.cantidad || 1}`).join(", ");
+        const gananciaNeta = carrito.reduce((acc, p) => {
+            const venta = Number(p.precio || 0);
+            const costo = Number(p.precio_costo || 0);
+            const cantidad = Number(p.cantidad || 1);
+            return acc + ((venta - costo) * cantidad);
+        }, 0);
         const ticketGenerado = generarTicketWhatsApp();
         try {
             const { error: errorVenta } = await _supabase
                 .from('ventas_honey')
-                .insert([{ productos: resumenProductos, total: total, metodo_pago: metodo }]);
+                .insert([{
+                    productos: resumenProductos,
+                    total: Number(total.toFixed(2)),
+                    metodo_pago: metodo,
+                    ganancia_neta: Number(gananciaNeta.toFixed(2))
+                }]);
             if (errorVenta) throw errorVenta;
 
             for (const item of carrito) {
-                const nuevoStock = (item.stock_actual > 0) ? item.stock_actual - 1 : 0;
+                const descuento = Number(item.cantidad || 1);
+                const nuevoStock = Math.max(0, Number(item.stock_actual || 0) - descuento);
                 await _supabase.from('productos_almacen').update({ stock: nuevoStock }).eq('codigo_barras', item.codigo);
             }
 
             ultimoTicketWhatsApp = ticketGenerado;
             document.getElementById('ticket-actions').style.display = 'block';
             showToast("Venta procesada por: " + currentUserRole, "success");
+            if (currentUserRole === "ADMIN") await cargarUtilidadDelDia();
             carrito = [];
             document.getElementById('paga-con').value = "";
             actualizarPantalla();
