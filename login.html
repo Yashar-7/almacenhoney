@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0f172a">
+    <title>Honey Auth - Acceso Seguro</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --negro: #0a0f1f; --gris: #111827; --cian: #22d3ee; --violeta: #8b5cf6; --rojo: #ff3b3b; --verde: #39ff88; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            color: #e5e7eb;
+            background: radial-gradient(circle at top right, rgba(139, 92, 246, 0.18), transparent 45%),
+                        radial-gradient(circle at bottom left, rgba(34, 211, 238, 0.12), transparent 40%),
+                        var(--negro);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 14px;
+        }
+        .card {
+            width: min(92vw, 380px);
+            background: rgba(17, 24, 39, 0.92);
+            border: 1px solid var(--cian);
+            box-shadow: 0 0 18px rgba(34, 211, 238, 0.4), 0 0 22px rgba(139, 92, 246, 0.25);
+            border-radius: 16px;
+            padding: 20px;
+        }
+        h1 {
+            margin: 0 0 6px 0;
+            color: #7ef9ff;
+            font-size: 1.2rem;
+            letter-spacing: 0.5px;
+            text-align: center;
+        }
+        .sub {
+            margin: 0 0 14px 0;
+            text-align: center;
+            font-size: 0.82rem;
+            color: #cbd5e1;
+        }
+        label {
+            font-size: 0.78rem;
+            color: #cbd5e1;
+            display: block;
+            margin: 8px 0 4px 0;
+        }
+        input {
+            width: 100%;
+            box-sizing: border-box;
+            border-radius: 10px;
+            border: 1px solid #334155;
+            background: #0f172a;
+            color: #e5e7eb;
+            padding: 11px 12px;
+            font-size: 0.92rem;
+        }
+        .pass-wrap {
+            position: relative;
+        }
+        .btn-eye {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            border: 1px solid #334155;
+            background: #1e293b;
+            color: #cbd5e1;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            padding: 4px 8px;
+            cursor: pointer;
+        }
+        .btn {
+            width: 100%;
+            border: none;
+            border-radius: 10px;
+            padding: 12px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 12px;
+        }
+        .btn-main {
+            background: linear-gradient(90deg, #06b6d4, #8b5cf6);
+            color: white;
+            border: 1px solid #7ef9ff;
+            box-shadow: 0 0 12px rgba(126, 249, 255, 0.38);
+        }
+        .switch {
+            text-align: center;
+            margin-top: 12px;
+            font-size: 0.82rem;
+            color: #cbd5e1;
+        }
+        .switch button {
+            border: none;
+            background: none;
+            color: #7ef9ff;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: underline;
+            font-size: 0.82rem;
+        }
+        .toast-wrap {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 1800;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-width: min(86vw, 320px);
+            pointer-events: none;
+        }
+        .toast {
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 0.86rem;
+            font-weight: bold;
+            color: #fff;
+            background: rgba(20, 24, 34, 0.96);
+            border: 1px solid #2d3748;
+            box-shadow: 0 0 12px rgba(241, 196, 15, 0.28);
+            transform: translateX(10px);
+            opacity: 0;
+            transition: transform .18s ease, opacity .18s ease;
+        }
+        .toast.show { transform: translateX(0); opacity: 1; }
+        .toast-success { border-color: var(--verde); box-shadow: 0 0 12px rgba(57, 255, 136, 0.55); }
+        .toast-error { border-color: var(--rojo); box-shadow: 0 0 12px rgba(255, 59, 59, 0.62); }
+        .toast-info { border-color: #f1c40f; box-shadow: 0 0 12px rgba(241, 196, 15, 0.48); }
+    </style>
+</head>
+<body>
+    <div id="toast-wrap" class="toast-wrap"></div>
+    <div class="card">
+        <h1>ACCESO HONEY</h1>
+        <p id="subtitulo" class="sub">Inicia sesión para entrar al dashboard.</p>
+        <label for="email">Email</label>
+        <input id="email" type="email" placeholder="tucorreo@ejemplo.com">
+        <label for="password">Contraseña</label>
+        <div class="pass-wrap">
+            <input id="password" type="password" placeholder="Tu contraseña">
+            <button class="btn-eye" type="button" onclick="togglePassword()">👁</button>
+        </div>
+        <button id="btn-main" class="btn btn-main" onclick="procesarAuth()">Ingresar</button>
+        <div class="switch">
+            <span id="switch-label">¿No tienes cuenta?</span>
+            <button type="button" onclick="toggleModoRegistro()" id="switch-btn">Regístrate</button>
+        </div>
+    </div>
+
+<script>
+    const SB_URL = "https://svpurpvbiujhcbiugrkh.supabase.co";
+    const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2cHVycHZiaXVqaGNiaXVncmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3NDgzMTUsImV4cCI6MjA4MzMyNDMxNX0.AivKJ0_N0z_4T4vLNfUcE2hepJ1XXOO8-4fSA3PJXdc";
+    const _supabase = window.supabase.createClient(SB_URL, SB_KEY);
+    let modoRegistro = false;
+    let toastTimeoutRef = null;
+
+    function showToast(message, type = "info", duration = 2200) {
+        const wrap = document.getElementById('toast-wrap');
+        if (!wrap) return;
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        wrap.appendChild(toast);
+        requestAnimationFrame(() => toast.classList.add('show'));
+        clearTimeout(toastTimeoutRef);
+        toastTimeoutRef = setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 220);
+        }, duration);
+    }
+
+    function togglePassword() {
+        const input = document.getElementById('password');
+        input.type = input.type === 'password' ? 'text' : 'password';
+    }
+
+    function toggleModoRegistro() {
+        modoRegistro = !modoRegistro;
+        document.getElementById('btn-main').innerText = modoRegistro ? 'Crear Cuenta' : 'Ingresar';
+        document.getElementById('subtitulo').innerText = modoRegistro
+            ? 'Regístrate para crear tu espacio de trabajo.'
+            : 'Inicia sesión para entrar al dashboard.';
+        document.getElementById('switch-label').innerText = modoRegistro ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?';
+        document.getElementById('switch-btn').innerText = modoRegistro ? 'Inicia sesión' : 'Regístrate';
+    }
+
+    async function procesarAuth() {
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        if (!email || !password) {
+            showToast('Completa email y contraseña.', 'error');
+            return;
+        }
+        try {
+            if (modoRegistro) {
+                const { error } = await _supabase.auth.signUp({ email, password });
+                if (error) throw error;
+                showToast('Cuenta creada. Ahora puedes ingresar.', 'success', 2500);
+                modoRegistro = true;
+                toggleModoRegistro();
+                return;
+            }
+            const { error } = await _supabase.auth.signInWithPassword({ email, password });
+            if (error) throw error;
+            showToast('Acceso correcto. Redirigiendo...', 'success', 1200);
+            setTimeout(() => { window.location.href = 'index.html'; }, 450);
+        } catch (err) {
+            showToast(err.message || 'Error de autenticación.', 'error', 3200);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        const { data: { user } } = await _supabase.auth.getUser();
+        if (user) window.location.href = 'index.html';
+    });
+</script>
+</body>
+</html>

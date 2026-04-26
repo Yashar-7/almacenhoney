@@ -264,7 +264,10 @@
 
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
         <button class="btn btn-nav" style="width: auto;" onclick="window.location.href='index.html'">🏠 VOLVER</button>
-        <span id="roleBadge" class="badge-role">ROL: Cargando...</span>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <span id="roleBadge" class="badge-role">ROL: Cargando...</span>
+            <button class="btn btn-nav" style="width:auto; margin:0;" onclick="cerrarSesion()">SALIR</button>
+        </div>
     </div>
 
     <h2>🍯 Gestión Almacén Honey</h2>
@@ -400,6 +403,7 @@
     let existeColumnaCategoria = false;
     let filtroAgotadosActivo = false;
     let textoBusquedaInventario = '';
+    let currentUserId = null;
 
     function showToast(message, type = "info", duration = 2200) {
         const wrap = document.getElementById('toast-wrap');
@@ -579,6 +583,7 @@
 
         const actualizados = objetivos.map(p => ({
             ...p,
+            user_id: currentUserId,
             precio: Number(Math.max(0, Number(p.precio || 0) * factor).toFixed(2))
         }));
 
@@ -595,42 +600,28 @@
         await cargarListaMercaderia();
     }
 
-    /** Verifica el PIN en la tabla 'usuarios' de Supabase. Retorna el rol ('ADMIN'/'VENDEDOR') o null. */
-    async function verificarPinEnSupabase(pin) {
-        if (!pin || !pin.trim()) return null;
-        const { data, error } = await _supabase
-            .from('usuarios')
-            .select('rol')
-            .eq('pin', pin.trim())
-            .maybeSingle();
-        if (error || !data) return null;
-        return (data.rol === 'ADMIN' || data.rol === 'VENDEDOR') ? data.rol : null;
-    }
-
-    /** Re-verifica el rol antes de una acción sensible. Retorna 'ADMIN', 'VENDEDOR' o null. */
     async function verificarRolActual() {
-        const pin = sessionStorage.getItem('honey_pin');
-        if (!pin) return null;
-        return await verificarPinEnSupabase(pin);
+        const { data: { user }, error } = await _supabase.auth.getUser();
+        if (error || !user) return null;
+        currentUserId = user.id;
+        currentUserRole = user.user_metadata?.role || currentUserRole || 'ADMIN';
+        return currentUserRole;
     }
 
-    /** Comprueba la sesión al cargar la página: PIN en sessionStorage y validación en Supabase. */
+    async function cerrarSesion() {
+        await _supabase.auth.signOut();
+        window.location.href = 'login.html';
+    }
+
+    /** Comprueba la sesión al cargar la página: sesión Auth en Supabase. */
     async function verificarSesion() {
-        const pin = sessionStorage.getItem('honey_pin');
-        if (!pin) {
-            sessionStorage.removeItem('honey_role');
-            window.location.href = 'index.html';
+        const { data: { user }, error } = await _supabase.auth.getUser();
+        if (error || !user) {
+            window.location.href = 'login.html';
             return;
         }
-        const rol = await verificarPinEnSupabase(pin);
-        if (!rol) {
-            sessionStorage.removeItem('honey_pin');
-            sessionStorage.removeItem('honey_role');
-            window.location.href = 'index.html';
-            return;
-        }
-        currentUserRole = rol;
-        sessionStorage.setItem('honey_role', rol);
+        currentUserId = user.id;
+        currentUserRole = user.user_metadata?.role || 'ADMIN';
         aplicarSeguridad();
         cargarListaMercaderia();
     }
@@ -654,7 +645,12 @@
 
     async function verificarExistencia(codigo) {
         if(!codigo) return;
-        const { data, error } = await _supabase.from('productos_almacen').select('*').eq('codigo_barras', codigo).maybeSingle();
+        const { data, error } = await _supabase
+            .from('productos_almacen')
+            .select('*')
+            .eq('codigo_barras', codigo)
+            .eq('user_id', currentUserId)
+            .maybeSingle();
         if (data) {
             cargarEnFormulario(data);
         } else {
@@ -693,9 +689,7 @@
         const rol = await verificarRolActual();
         if (!rol) {
             showToast('Sesión expirada o no válida.', 'error', 2600);
-            sessionStorage.removeItem('honey_pin');
-            sessionStorage.removeItem('honey_role');
-            window.location.href = 'index.html';
+            window.location.href = 'login.html';
             return;
         }
         if (rol !== 'ADMIN') {
@@ -707,7 +701,7 @@
         if(!codigo) return;
 
         if(confirm(`¿Estás seguro de eliminar "${nombre}"? Esta acción no se puede deshacer.`)) {
-            const { error } = await _supabase.from('productos_almacen').delete().eq('codigo_barras', codigo);
+            const { error } = await _supabase.from('productos_almacen').delete().eq('codigo_barras', codigo).eq('user_id', currentUserId);
             if(error) {
                 showToast("Error al eliminar", "error");
             } else {
@@ -722,9 +716,7 @@
         const rol = await verificarRolActual();
         if (!rol) {
             showToast('Sesión expirada o no válida.', 'error', 2600);
-            sessionStorage.removeItem('honey_pin');
-            sessionStorage.removeItem('honey_role');
-            window.location.href = 'index.html';
+            window.location.href = 'login.html';
             return;
         }
         if (rol !== 'ADMIN') {
@@ -745,7 +737,8 @@
             precio_costo: parseFloat(document.getElementById('cos').value) || 0,
             precio: parseFloat(pre), 
             stock: parseInt(document.getElementById('sto').value) || 0,
-            categoria: cat || null
+            categoria: cat || null,
+            user_id: currentUserId
         };
 
         // UPSERT CON RESOLUCIÓN DE CONFLICTO (EVITA ERROR DE LLAVE DUPLICADA)
@@ -766,9 +759,7 @@
         const rol = await verificarRolActual();
         if (!rol) {
             showToast('Sesión expirada o no válida.', 'error', 2600);
-            sessionStorage.removeItem('honey_pin');
-            sessionStorage.removeItem('honey_role');
-            window.location.href = 'index.html';
+            window.location.href = 'login.html';
             return;
         }
         if (rol !== 'ADMIN') {
@@ -781,7 +772,7 @@
             showToast('Indica descripción y monto válido.', 'error');
             return;
         }
-        const { error } = await _supabase.from('gastos_honey').insert([{ descripcion: desc, monto: monto, fecha: new Date().toISOString() }]);
+        const { error } = await _supabase.from('gastos_honey').insert([{ descripcion: desc, monto: monto, fecha: new Date().toISOString(), user_id: currentUserId }]);
         if (error) {
             showToast('Error al guardar gasto: ' + error.message, 'error', 3000);
         } else {
@@ -795,7 +786,7 @@
     async function cargarListaMercaderia() {
         const cuerpo = document.getElementById('cuerpo-tabla');
         cuerpo.innerHTML = "Cargando...";
-        const { data, error } = await _supabase.from('productos_almacen').select('*').order('nombre', { ascending: true });
+        const { data, error } = await _supabase.from('productos_almacen').select('*').eq('user_id', currentUserId).order('nombre', { ascending: true });
         if (error) {
             showToast('No se pudo cargar inventario: ' + error.message, 'error', 3000);
             return;
@@ -814,6 +805,7 @@
         const { data, error } = await _supabase
             .from('productos_almacen')
             .select('categoria')
+            .eq('user_id', currentUserId)
             .not('categoria', 'is', null);
         if (error) {
             categoriasCache = [];
@@ -897,7 +889,8 @@
         const { error } = await _supabase
             .from('productos_almacen')
             .update({ stock: nuevoStock })
-            .eq('codigo_barras', codigo);
+            .eq('codigo_barras', codigo)
+            .eq('user_id', currentUserId);
 
         if (error) {
             stockEl.innerText = String(stockActual);
@@ -915,7 +908,7 @@
 
     async function verBalanceHoy() {
         let hoy = new Date(); hoy.setHours(0,0,0,0);
-        const { data: v } = await _supabase.from('ventas_honey').select('*').gte('fecha', hoy.toISOString());
+        const { data: v } = await _supabase.from('ventas_honey').select('*').eq('user_id', currentUserId).gte('fecha', hoy.toISOString());
         
         let efe = v.filter(x => x.metodo_pago === 'Efectivo').reduce((s, i) => s + i.total, 0);
         let tar = v.filter(x => x.metodo_pago === 'Tarjeta').reduce((s, i) => s + i.total, 0);
@@ -931,8 +924,8 @@
 
         const rolAdmin = await verificarRolActual();
         if (rolAdmin === "ADMIN") {
-            const { data: g } = await _supabase.from('gastos_honey').select('monto').gte('fecha', hoy.toISOString());
-            const { data: productos } = await _supabase.from('productos_almacen').select('nombre, precio_costo');
+            const { data: g } = await _supabase.from('gastos_honey').select('monto').eq('user_id', currentUserId).gte('fecha', hoy.toISOString());
+            const { data: productos } = await _supabase.from('productos_almacen').select('nombre, precio_costo').eq('user_id', currentUserId);
             let totG = g.reduce((s, i) => s + (i.monto || 0), 0);
             let costoTotalVendido = 0;
             v.forEach(venta => {
@@ -954,9 +947,7 @@
         const rol = await verificarRolActual();
         if (!rol) {
             showToast('Sesión expirada o no válida.', 'error', 2600);
-            sessionStorage.removeItem('honey_pin');
-            sessionStorage.removeItem('honey_role');
-            window.location.href = 'index.html';
+            window.location.href = 'login.html';
             return;
         }
         if (rol !== "ADMIN") {
@@ -977,6 +968,7 @@
             const { data: ventas, error } = await _supabase
                 .from('ventas_honey')
                 .select('fecha, productos, total, ganancia_neta, metodo_pago')
+                .eq('user_id', currentUserId)
                 .order('fecha', { ascending: false });
             if (error) throw error;
 
@@ -1106,8 +1098,8 @@
         for (let i = 0; i < 7; i++) {
             let d = new Date(); d.setDate(hoy.getDate() - i); d.setHours(0,0,0,0);
             let f = new Date(d); f.setHours(23,59,59,999);
-            const { data: v } = await _supabase.from('ventas_honey').select('total').gte('fecha', d.toISOString()).lte('fecha', f.toISOString());
-            const { data: g } = await _supabase.from('gastos_honey').select('monto').gte('fecha', d.toISOString()).lte('fecha', f.toISOString());
+            const { data: v } = await _supabase.from('ventas_honey').select('total').eq('user_id', currentUserId).gte('fecha', d.toISOString()).lte('fecha', f.toISOString());
+            const { data: g } = await _supabase.from('gastos_honey').select('monto').eq('user_id', currentUserId).gte('fecha', d.toISOString()).lte('fecha', f.toISOString());
             let neto = (v ? v.reduce((s, x) => s + x.total, 0) : 0) - (g ? g.reduce((s, x) => s + x.monto, 0) : 0);
             html += `<div style="display:flex; justify-content:space-between; padding:5px; border-bottom:1px solid #333;">
                 <span>${d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' })}</span>

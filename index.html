@@ -208,7 +208,7 @@
 <body>
 <div id="toast-wrap" class="toast-wrap"></div>
 
-<div id="loginOverlay">
+<div id="loginOverlay" style="display:none;">
     <img src="almacenhoney.png" alt="Logo" style="width: 120px; margin-bottom: 20px;">
     <div class="login-card">
         <h2 style="color: var(--amarillo); margin: 0 0 15px 0; font-size: 1.2rem;">ACCESO PANEL HONEY</h2>
@@ -222,7 +222,7 @@
     <div class="header">
         <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 10px;">
             <span id="roleDisplay" class="badge-role">ROL: -</span>
-            <button onclick="salir()" style="background:none; border:1px solid var(--amarillo); color:var(--amarillo); font-size:0.6rem; padding:2px 5px; border-radius:5px;">SALIR</button>
+            <button onclick="salir()" style="background:none; border:1px solid var(--amarillo); color:var(--amarillo); font-size:0.6rem; padding:2px 5px; border-radius:5px;">CERRAR SESIÓN</button>
         </div>
         <img src="almacenhoney.png" alt="Logo Honey">
         <h1 id="nombre-local-header">ALMACÉN HONEY</h1>
@@ -281,6 +281,7 @@
     const _supabase = window.supabase.createClient(SB_URL, SB_KEY);
 
     let currentUserRole = null;
+    let currentUserId = null;
     let carrito = [];
     let total = 0;
     let perfilNegocio = {
@@ -308,8 +309,9 @@
         }, duration);
     }
 
-    document.addEventListener("DOMContentLoaded", () => {
-        cargarPerfilNegocio();
+    document.addEventListener("DOMContentLoaded", async () => {
+        await verificarSesionAuth();
+        await cargarPerfilNegocio();
     });
 
     function formatoMoneda(valor) {
@@ -317,60 +319,30 @@
         return `${moneda}${Number(valor || 0).toFixed(2)}`;
     }
 
-    async function verificarPinEnSupabase(pin) {
-        if (!pin || !pin.trim()) return null;
-        const { data, error } = await _supabase
-            .from('usuarios')
-            .select('rol')
-            .eq('pin', pin.trim())
-            .maybeSingle();
-        
-        if (error) {
-            console.error("Error Supabase:", error);
-            return null;
-        }
-        return data;
+    function verificarAcceso() {
+        window.location.href = 'login.html';
     }
 
-    async function verificarAcceso() {
-        const pinInput = document.getElementById('passCode');
-        const pin = pinInput.value;
-        const errorMsg = document.getElementById('errorMsg');
-        const btn = document.getElementById('btnEntrar');
-
-        errorMsg.style.display = 'none';
-        btn.disabled = true;
-        btn.textContent = 'Verificando...';
-
-        try {
-            const resultado = await verificarPinEnSupabase(pin);
-            if (resultado && (resultado.rol === 'ADMIN' || resultado.rol === 'VENDEDOR')) {
-                currentUserRole = resultado.rol;
-                sessionStorage.setItem('honey_pin', pin.trim());
-                sessionStorage.setItem('honey_role', resultado.rol);
-                document.getElementById('loginOverlay').style.display = 'none';
-                document.getElementById('appContent').style.display = 'block';
-                document.getElementById('roleDisplay').innerText = "ROL: " + currentUserRole;
-                if (currentUserRole === "ADMIN") {
-                    document.getElementById('utilidad-dia-card').style.display = 'inline-block';
-                    document.getElementById('btn-xreport').style.display = 'inline-block';
-                    await cargarUtilidadDelDia();
-                }
-            } else {
-                errorMsg.style.display = 'block';
-                pinInput.value = "";
-            }
-        } catch (err) {
-            showToast("Error de red.", "error");
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'ENTRAR';
+    async function verificarSesionAuth() {
+        const { data: { user }, error } = await _supabase.auth.getUser();
+        if (error || !user) {
+            window.location.href = 'login.html';
+            return;
+        }
+        currentUserId = user.id;
+        currentUserRole = user.user_metadata?.role || 'ADMIN';
+        document.getElementById('appContent').style.display = 'block';
+        document.getElementById('roleDisplay').innerText = "ROL: " + currentUserRole;
+        if (currentUserRole === "ADMIN") {
+            document.getElementById('utilidad-dia-card').style.display = 'inline-block';
+            document.getElementById('btn-xreport').style.display = 'inline-block';
+            await cargarUtilidadDelDia();
         }
     }
 
-    function salir() {
-        sessionStorage.clear();
-        location.reload();
+    async function salir() {
+        await _supabase.auth.signOut();
+        window.location.href = 'login.html';
     }
 
     function irAInventario() {
@@ -425,6 +397,7 @@
             const { data, error } = await _supabase
                 .from('ventas_honey')
                 .select('ganancia_neta')
+                .eq('user_id', currentUserId)
                 .gte('fecha', inicio.toISOString());
             if (error) throw error;
             const utilidad = (data || []).reduce((acc, v) => acc + Number(v.ganancia_neta || 0), 0);
@@ -479,7 +452,12 @@
     }
 
     async function buscarProducto(codigo) {
-        const { data, error } = await _supabase.from('productos_almacen').select('*').eq('codigo_barras', codigo).single();
+        const { data, error } = await _supabase
+            .from('productos_almacen')
+            .select('*')
+            .eq('codigo_barras', codigo)
+            .eq('user_id', currentUserId)
+            .single();
         if (error || !data) { showToast("Producto no registrado.", "error"); return; }
         const existente = carrito.findIndex(p => p.codigo === data.codigo_barras);
         if (existente >= 0) {
@@ -584,8 +562,8 @@
         inicio.setHours(0, 0, 0, 0);
         try {
             const [{ data: ventas, error: errorVentas }, { data: gastos, error: errorGastos }] = await Promise.all([
-                _supabase.from('ventas_honey').select('total, metodo_pago, ganancia_neta').gte('fecha', inicio.toISOString()),
-                _supabase.from('gastos_honey').select('monto').gte('fecha', inicio.toISOString())
+                _supabase.from('ventas_honey').select('total, metodo_pago, ganancia_neta').eq('user_id', currentUserId).gte('fecha', inicio.toISOString()),
+                _supabase.from('gastos_honey').select('monto').eq('user_id', currentUserId).gte('fecha', inicio.toISOString())
             ]);
             if (errorVentas) throw errorVentas;
             if (errorGastos) throw errorGastos;
@@ -628,14 +606,15 @@
                     productos: resumenProductos,
                     total: Number(total.toFixed(2)),
                     metodo_pago: metodo,
-                    ganancia_neta: Number(gananciaNeta.toFixed(2))
+                    ganancia_neta: Number(gananciaNeta.toFixed(2)),
+                    user_id: currentUserId
                 }]);
             if (errorVenta) throw errorVenta;
 
             for (const item of carrito) {
                 const descuento = Number(item.cantidad || 1);
                 const nuevoStock = Math.max(0, Number(item.stock_actual || 0) - descuento);
-                await _supabase.from('productos_almacen').update({ stock: nuevoStock }).eq('codigo_barras', item.codigo);
+                await _supabase.from('productos_almacen').update({ stock: nuevoStock }).eq('codigo_barras', item.codigo).eq('user_id', currentUserId);
             }
 
             ultimoTicketWhatsApp = ticketGenerado;
