@@ -529,6 +529,18 @@
         return base.replace(new RegExp(`(${safe})`, 'ig'), '<span class="txt-highlight">$1</span>');
     }
 
+    function autoAjustarColumnas(ws, filas, headers) {
+        const anchos = headers.map(h => String(h).length);
+        filas.forEach(fila => {
+            headers.forEach((h, idx) => {
+                const valor = fila[h] ?? '';
+                const largo = String(valor).length;
+                if (largo > anchos[idx]) anchos[idx] = largo;
+            });
+        });
+        ws['!cols'] = anchos.map(w => ({ wch: Math.min(Math.max(w + 2, 10), 55) }));
+    }
+
     async function aplicarAjusteMasivoPrecios() {
         const rol = await verificarRolActual();
         if (rol !== 'ADMIN') {
@@ -1010,8 +1022,9 @@
             filas.push({ 'Fecha': '-', 'Producto': '-', 'Cantidad': 0, 'Total Venta': 0, 'Ganancia Neta': 0 });
         }
 
+        const headersDetalle = ['Fecha', 'Producto', 'Cantidad', 'Total Venta', 'Ganancia Neta'];
         const hoja = XLSX.utils.json_to_sheet(filas, {
-            header: ['Fecha', 'Producto', 'Cantidad', 'Total Venta', 'Ganancia Neta']
+            header: headersDetalle
         });
         const rango = XLSX.utils.decode_range(hoja['!ref']);
         for (let c = rango.s.c; c <= rango.e.c; c++) {
@@ -1019,16 +1032,33 @@
             if (!hoja[celda]) continue;
             hoja[celda].s = { font: { bold: true } };
         }
-        hoja['!cols'] = [
-            { wch: 20 },
-            { wch: 36 },
-            { wch: 10 },
-            { wch: 14 },
-            { wch: 14 }
+        autoAjustarColumnas(hoja, filas, headersDetalle);
+
+        const totalVentas = (ventas || []).reduce((acc, v) => acc + Number(v.total || 0), 0);
+        const totalGanancia = (ventas || []).reduce((acc, v) => acc + Number(v.ganancia_neta || 0), 0);
+        const totalEfectivo = (ventas || []).filter(v => v.metodo_pago === 'Efectivo').reduce((acc, v) => acc + Number(v.total || 0), 0);
+        const totalQr = (ventas || []).filter(v => v.metodo_pago === 'QR').reduce((acc, v) => acc + Number(v.total || 0), 0);
+        const totalTarjeta = (ventas || []).filter(v => v.metodo_pago === 'Tarjeta').reduce((acc, v) => acc + Number(v.total || 0), 0);
+        const resumenFilas = [
+            { 'Concepto': 'Total de Ventas del periodo', 'Valor': Number(totalVentas.toFixed(2)) },
+            { 'Concepto': 'Ganancia Neta Total acumulada', 'Valor': Number(totalGanancia.toFixed(2)) },
+            { 'Concepto': '', 'Valor': '' },
+            { 'Concepto': 'Comparativo Métodos de Pago', 'Valor': 'Monto' },
+            { 'Concepto': 'Efectivo', 'Valor': Number(totalEfectivo.toFixed(2)) },
+            { 'Concepto': 'QR', 'Valor': Number(totalQr.toFixed(2)) },
+            { 'Concepto': 'Tarjeta', 'Valor': Number(totalTarjeta.toFixed(2)) }
         ];
+        const headersResumen = ['Concepto', 'Valor'];
+        const hojaResumen = XLSX.utils.json_to_sheet(resumenFilas, { header: headersResumen });
+        const celdaA1 = XLSX.utils.encode_cell({ r: 0, c: 0 });
+        const celdaB1 = XLSX.utils.encode_cell({ r: 0, c: 1 });
+        if (hojaResumen[celdaA1]) hojaResumen[celdaA1].s = { font: { bold: true } };
+        if (hojaResumen[celdaB1]) hojaResumen[celdaB1].s = { font: { bold: true } };
+        autoAjustarColumnas(hojaResumen, resumenFilas, headersResumen);
 
         const libro = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(libro, hoja, 'Reporte de Ventas Honey');
+        XLSX.utils.book_append_sheet(libro, hojaResumen, 'Resumen Financiero');
         const hoy = new Date();
         const fechaArchivo = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
         XLSX.writeFile(libro, `Ventas_Honey_${fechaArchivo}.xlsx`, { cellStyles: true });
