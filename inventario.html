@@ -49,6 +49,22 @@
             align-items: center;
             gap: 7px;
         }
+        .categoria-chip {
+            display: inline-block;
+            margin-top: 4px;
+            padding: 2px 7px;
+            border-radius: 999px;
+            font-size: 0.68rem;
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(34, 211, 238, 0.55);
+            color: #7ef9ff;
+            box-shadow: 0 0 7px rgba(34, 211, 238, 0.25);
+        }
+        .categoria-chip-empty {
+            color: #94a3b8;
+            border-color: rgba(148, 163, 184, 0.45);
+            box-shadow: none;
+        }
         .stock-value {
             min-width: 20px;
             display: inline-block;
@@ -219,6 +235,20 @@
             font-weight: bold;
             text-align: center;
         }
+        .buscador-wrap {
+            margin-top: 8px;
+        }
+        .buscador-input {
+            width: 100%;
+            box-sizing: border-box;
+            text-align: left;
+            background: rgba(15, 23, 42, 0.95);
+            color: #e2e8f0;
+            border: 1px solid #22d3ee;
+            box-shadow: 0 0 8px rgba(34, 211, 238, 0.2);
+            font-size: 0.9rem;
+            margin-bottom: 0;
+        }
         .capital-card { background: var(--azul); padding: 10px; border-radius: 10px; margin-bottom: 10px; text-align: center; }
         .badge-role { background: var(--amarillo); color: black; padding: 2px 10px; border-radius: 10px; font-size: 0.7rem; font-weight: bold; }
     </style>
@@ -271,6 +301,9 @@
             <button class="btn btn-lista" onclick="cargarListaMercaderia()">🔄 ACTUALIZAR LISTA</button>
             <button class="btn btn-ajuste admin-only" onclick="abrirModalAjustePrecios()">⚡ AJUSTE DE PRECIOS</button>
             <button id="btn-ver-agotados" class="btn btn-agotados" onclick="toggleFiltroAgotados()">🚨 VER AGOTADOS</button>
+        </div>
+        <div class="buscador-wrap">
+            <input id="buscador-productos" class="buscador-input" type="text" placeholder="Buscar por nombre, código o categoría..." oninput="actualizarBusquedaInventario(this.value)">
         </div>
         <div id="contador-faltantes" class="contador-faltantes">🚨 0 productos con stock crítico</div>
         <div class="tabla-contenedor">
@@ -360,6 +393,7 @@
     let categoriasCache = [];
     let existeColumnaCategoria = false;
     let filtroAgotadosActivo = false;
+    let textoBusquedaInventario = '';
 
     function showToast(message, type = "info", duration = 2200) {
         const wrap = document.getElementById('toast-wrap');
@@ -470,6 +504,11 @@
         const btn = document.getElementById('btn-ver-agotados');
         if (btn) btn.classList.toggle('active', filtroAgotadosActivo);
         showToast(filtroAgotadosActivo ? 'Filtro activo: stock menor a 5' : 'Filtro desactivado', 'info', 1600);
+        renderTablaInventario();
+    }
+
+    function actualizarBusquedaInventario(valor) {
+        textoBusquedaInventario = String(valor || '').trim().toLowerCase();
         renderTablaInventario();
     }
 
@@ -763,18 +802,30 @@
             contador.textContent = `🚨 ${criticosCount} productos con stock crítico`;
             contador.style.display = (filtroAgotadosActivo || criticosCount > 0) ? 'block' : 'none';
         }
-        const listaBase = filtroAgotadosActivo
+        let listaBase = filtroAgotadosActivo
             ? productosCache.filter(p => Number(p.stock || 0) < 5)
             : productosCache;
+        if (textoBusquedaInventario) {
+            listaBase = listaBase.filter(p => {
+                const nombre = String(p.nombre || '').toLowerCase();
+                const codigo = String(p.codigo_barras || '').toLowerCase();
+                const categoria = String(p.categoria || '').toLowerCase();
+                return nombre.includes(textoBusquedaInventario) || codigo.includes(textoBusquedaInventario) || categoria.includes(textoBusquedaInventario);
+            });
+        }
         let html = ""; let sumaTotal = 0;
         listaBase.forEach(p => {
             const claseStock = claseSemaforoStock(Number(p.stock) || 0);
             sumaTotal += (p.precio * p.stock);
             const celdaCosto = currentUserRole === "ADMIN" ? `<td>$${p.precio_costo || 0}</td>` : "";
             const accionClick = currentUserRole === "ADMIN" ? `onclick='cargarEnFormulario(${JSON.stringify(p)})'` : "";
+            const categoria = String(p.categoria || '').trim();
+            const categoriaChip = categoria
+                ? `<span class="categoria-chip">${categoria}</span>`
+                : `<span class="categoria-chip categoria-chip-empty">Sin Cat.</span>`;
 
             html += `<tr ${accionClick} style="cursor:pointer">
-                <td>${p.nombre}</td>
+                <td>${p.nombre}<br>${categoriaChip}</td>
                 ${celdaCosto}
                 <td>$${p.precio}</td>
                 <td class="${claseStock}">
