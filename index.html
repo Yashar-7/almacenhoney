@@ -116,9 +116,38 @@
             font-size: 0.9rem;
             padding: 12px;
         }
+        .toast-wrap {
+            position: fixed;
+            top: 76px;
+            right: 16px;
+            z-index: 1800;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-width: min(86vw, 320px);
+            pointer-events: none;
+        }
+        .toast {
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 0.86rem;
+            font-weight: bold;
+            color: #fff;
+            background: rgba(20, 24, 34, 0.96);
+            border: 1px solid #2d3748;
+            box-shadow: 0 0 12px rgba(241, 196, 15, 0.28);
+            transform: translateX(10px);
+            opacity: 0;
+            transition: transform .18s ease, opacity .18s ease;
+        }
+        .toast.show { transform: translateX(0); opacity: 1; }
+        .toast-success { border-color: #39ff88; box-shadow: 0 0 12px rgba(57, 255, 136, 0.55); }
+        .toast-error { border-color: #ff3b3b; box-shadow: 0 0 12px rgba(255, 59, 59, 0.62); }
+        .toast-info { border-color: #f1c40f; box-shadow: 0 0 12px rgba(241, 196, 15, 0.48); }
     </style>
 </head>
 <body>
+<div id="toast-wrap" class="toast-wrap"></div>
 
 <div id="loginOverlay">
     <img src="almacenhoney.png" alt="Logo" style="width: 120px; margin-bottom: 20px;">
@@ -200,7 +229,23 @@
         moneda: "$"
     };
     let ultimoTicketWhatsApp = "";
+    let toastTimeoutRef = null;
     const scanner = new Html5Qrcode("reader");
+
+    function showToast(message, type = "info", duration = 2200) {
+        const wrap = document.getElementById('toast-wrap');
+        if (!wrap) return;
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        wrap.appendChild(toast);
+        requestAnimationFrame(() => toast.classList.add('show'));
+        clearTimeout(toastTimeoutRef);
+        toastTimeoutRef = setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 220);
+        }, duration);
+    }
 
     document.addEventListener("DOMContentLoaded", () => {
         cargarPerfilNegocio();
@@ -245,7 +290,7 @@
                 pinInput.value = "";
             }
         } catch (err) {
-            alert("Error de red.");
+            showToast("Error de red.", "error");
         } finally {
             btn.disabled = false;
             btn.textContent = 'ENTRAR';
@@ -304,7 +349,7 @@
         const moneda = document.getElementById('config-moneda').value.trim() || "$";
         const mensaje = document.getElementById('config-mensaje-ticket').value.trim();
 
-        if (!nombre) return alert("Ingresa el nombre del local.");
+        if (!nombre) return showToast("Ingresa el nombre del local.", "error");
 
         const payload = {
             nombre_local: nombre,
@@ -328,9 +373,9 @@
             perfilNegocio.moneda = data.moneda || "$";
             aplicarPerfilNegocioEnUI();
             cerrarModalConfiguracion();
-            alert("✅ Configuración de negocio guardada");
+            showToast("Configuración de negocio guardada", "success");
         } catch (err) {
-            alert("Error guardando configuración: " + err.message);
+            showToast("Error guardando configuración: " + err.message, "error", 3000);
         }
     }
 
@@ -338,12 +383,12 @@
         scanner.start({ facingMode: "environment" }, { fps: 15, qrbox: { width: 250, height: 150 } }, (codigo) => {
             scanner.stop();
             buscarProducto(codigo);
-        }).catch(err => alert("Error de cámara: " + err));
+        }).catch(err => showToast("Error de cámara: " + err, "error", 3000));
     }
 
     async function buscarProducto(codigo) {
         const { data, error } = await _supabase.from('productos_almacen').select('*').eq('codigo_barras', codigo).single();
-        if (error || !data) { alert("Producto no registrado."); return; }
+        if (error || !data) { showToast("Producto no registrado.", "error"); return; }
         carrito.push({ nombre: data.nombre, precio: parseFloat(data.precio), codigo: data.codigo_barras, stock_actual: data.stock });
         actualizarPantalla();
     }
@@ -396,13 +441,13 @@
     }
 
     function enviarTicketWhatsApp() {
-        if (!ultimoTicketWhatsApp) return alert("No hay ticket generado.");
+        if (!ultimoTicketWhatsApp) return showToast("No hay ticket generado.", "error");
         const mensajeCodificado = encodeURIComponent(ultimoTicketWhatsApp);
         window.open(`https://wa.me/?text=${mensajeCodificado}`, "_blank");
     }
 
     async function finalizarVenta(metodo) {
-        if(total === 0) return alert("Carrito vacío");
+        if(total === 0) return showToast("Carrito vacío", "error");
         const resumenProductos = carrito.map(p => p.nombre).join(", ");
         const ticketGenerado = generarTicketWhatsApp();
         try {
@@ -418,11 +463,11 @@
 
             ultimoTicketWhatsApp = ticketGenerado;
             document.getElementById('ticket-actions').style.display = 'block';
-            alert("✅ Venta procesada por: " + currentUserRole);
+            showToast("Venta procesada por: " + currentUserRole, "success");
             carrito = [];
             document.getElementById('paga-con').value = "";
             actualizarPantalla();
-        } catch (err) { alert("Error: " + err.message); }
+        } catch (err) { showToast("Error: " + err.message, "error", 3000); }
     }
 </script>
 </body>      
