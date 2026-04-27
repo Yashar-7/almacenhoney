@@ -571,7 +571,7 @@
         </div>
     </div>
 
-    <h2>🍯 Gestión Almacén Honey</h2>
+    <h2 id="titulo-negocio">🍯 Gestión Tu Almacén</h2>
     
     <div id="reader" style="width: 100%; border-radius: 15px; overflow: hidden; border: none; box-shadow: 0 8px 18px rgba(141,110,99,0.22); margin-bottom:10px;"></div>
     <button class="btn btn-scan" onclick="iniciarEscaneo()">📷 ESCANEAR PRODUCTO</button>
@@ -676,6 +676,11 @@
             <h3 style="margin:0 0 8px 0;">💳 Cuentas Corrientes</h3>
             <div id="lista-deudores"></div>
         </div>
+        <div class="sidebar-block">
+            <h3 style="margin:0 0 8px 0;">⚙️ Ajustes del Negocio</h3>
+            <input id="negocio-nombre-sidebar" type="text" placeholder="Nombre del comercio">
+            <button class="btn btn-save" onclick="guardarNombreComercioSidebar()">Guardar</button>
+        </div>
     </aside>
 
     <div id="modal-ajuste-precios" class="modal-overlay">
@@ -703,6 +708,7 @@
 <script>
     const SB_URL = "https://svpurpvbiujhcbiugrkh.supabase.co";
     const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2cHVycHZiaXVqaGNiaXVncmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3NDgzMTUsImV4cCI6MjA4MzMyNDMxNX0.AivKJ0_N0z_4T4vLNfUcE2hepJ1XXOO8-4fSA3PJXdc";
+    const NEGOCIO_NOMBRE_KEY = "honey_nombre_comercio";
     const _supabase = supabase.createClient(SB_URL, SB_KEY);
     const scanner = new Html5Qrcode("reader");
 
@@ -715,6 +721,61 @@
     let filtroAgotadosActivo = false;
     let textoBusquedaInventario = '';
     let currentUserId = null;
+    let nombreComercioActual = "Tu Almacén";
+
+    function aplicarNombreNegocioUI() {
+        const titulo = document.getElementById('titulo-negocio');
+        if (titulo) titulo.innerText = `🍯 Gestión ${nombreComercioActual || "Tu Almacén"}`;
+        const input = document.getElementById('negocio-nombre-sidebar');
+        if (input && document.activeElement !== input) input.value = nombreComercioActual || "";
+    }
+
+    async function cargarConfiguracionNegocioInventario() {
+        const cache = localStorage.getItem(NEGOCIO_NOMBRE_KEY);
+        if (cache) {
+            nombreComercioActual = cache;
+            aplicarNombreNegocioUI();
+        }
+        if (!currentUserId) return;
+        try {
+            const { data, error } = await _supabase
+                .from('configuracion_negocio')
+                .select('nombre_comercio')
+                .eq('user_id', currentUserId)
+                .maybeSingle();
+            if (error) throw error;
+            if (data?.nombre_comercio) {
+                nombreComercioActual = data.nombre_comercio.trim();
+                localStorage.setItem(NEGOCIO_NOMBRE_KEY, nombreComercioActual);
+                aplicarNombreNegocioUI();
+            }
+        } catch (err) {
+            // fallback en cache
+        }
+    }
+
+    async function guardarNombreComercioSidebar() {
+        const input = document.getElementById('negocio-nombre-sidebar');
+        const nombre = String(input?.value || '').trim();
+        if (!nombre) return showToast("Ingresa un nombre de comercio.", "error");
+        if (!currentUserId) return showToast("Sesión no disponible.", "error");
+        try {
+            const { error } = await _supabase
+                .from('configuracion_negocio')
+                .upsert({
+                    user_id: currentUserId,
+                    nombre_comercio: nombre,
+                    logo_url: null
+                }, { onConflict: 'user_id' });
+            if (error) throw error;
+            nombreComercioActual = nombre;
+            localStorage.setItem(NEGOCIO_NOMBRE_KEY, nombreComercioActual);
+            aplicarNombreNegocioUI();
+            showToast("Nombre del comercio guardado.", "success");
+        } catch (err) {
+            showToast("No se pudo guardar: " + err.message, "error", 2800);
+        }
+    }
 
     function showToast(message, type = "info", duration = 2200) {
         const wrap = document.getElementById('toast-wrap');
@@ -943,6 +1004,7 @@
         }
         currentUserId = user.id;
         currentUserRole = user.user_metadata?.role || 'ADMIN';
+        await cargarConfiguracionNegocioInventario();
         aplicarSeguridad();
         setFechaGastoHoy();
         cargarListaMercaderia();
@@ -958,6 +1020,12 @@
         if (event === 'SIGNED_IN' && session?.user && window.location.pathname.endsWith('login.html')) {
             window.location.href = 'index.html';
         }
+    });
+
+    window.addEventListener('storage', (event) => {
+        if (event.key !== NEGOCIO_NOMBRE_KEY) return;
+        nombreComercioActual = event.newValue || "Tu Almacén";
+        aplicarNombreNegocioUI();
     });
 
     function setFechaGastoHoy() {

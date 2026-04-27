@@ -621,6 +621,7 @@
 <script>
     const SB_URL = "https://svpurpvbiujhcbiugrkh.supabase.co";
     const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2cHVycHZiaXVqaGNiaXVncmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3NDgzMTUsImV4cCI6MjA4MzMyNDMxNX0.AivKJ0_N0z_4T4vLNfUcE2hepJ1XXOO8-4fSA3PJXdc";
+    const NEGOCIO_NOMBRE_KEY = "honey_nombre_comercio";
     
     // Inicialización corregida
     const _supabase = window.supabase.createClient(SB_URL, SB_KEY);
@@ -634,6 +635,10 @@
         nombre_local: "ALMACÉN HONEY",
         mensaje_ticket: "Gracias por su compra.",
         moneda: "$"
+    };
+    let configuracionNegocio = {
+        nombre_comercio: "Tu Almacén",
+        logo_url: ""
     };
     let ultimoTicketWhatsApp = "";
     let ultimoMensajeFiadoWhatsApp = "";
@@ -658,9 +663,42 @@
     }
 
     document.addEventListener("DOMContentLoaded", async () => {
+        const cacheNombre = localStorage.getItem(NEGOCIO_NOMBRE_KEY);
+        if (cacheNombre) {
+            configuracionNegocio.nombre_comercio = cacheNombre;
+            const header = document.getElementById('nombre-local-header');
+            if (header) header.innerText = cacheNombre;
+        }
         await verificarSesionAuth();
         await cargarPerfilNegocio();
     });
+
+    function obtenerNombreComercio() {
+        return (configuracionNegocio.nombre_comercio || perfilNegocio.nombre_local || "Tu Almacén").trim();
+    }
+
+    async function cargarConfiguracionNegocioUsuario() {
+        if (!currentUserId) return;
+        try {
+            const { data, error } = await _supabase
+                .from('configuracion_negocio')
+                .select('nombre_comercio, logo_url')
+                .eq('user_id', currentUserId)
+                .maybeSingle();
+            if (error) throw error;
+            if (data?.nombre_comercio) {
+                configuracionNegocio.nombre_comercio = data.nombre_comercio.trim();
+                configuracionNegocio.logo_url = data.logo_url || "";
+                localStorage.setItem(NEGOCIO_NOMBRE_KEY, configuracionNegocio.nombre_comercio);
+            } else {
+                const cache = localStorage.getItem(NEGOCIO_NOMBRE_KEY);
+                if (cache) configuracionNegocio.nombre_comercio = cache;
+            }
+        } catch (err) {
+            const cache = localStorage.getItem(NEGOCIO_NOMBRE_KEY);
+            if (cache) configuracionNegocio.nombre_comercio = cache;
+        }
+    }
 
     function formatoMoneda(valor) {
         const moneda = perfilNegocio.moneda || "$";
@@ -679,6 +717,7 @@
         }
         currentUserId = user.id;
         currentUserRole = user.user_metadata?.role || 'ADMIN';
+        await cargarConfiguracionNegocioUsuario();
         document.getElementById('appContent').style.display = 'block';
         document.getElementById('roleDisplay').innerText = "ROL: " + currentUserRole;
         if (currentUserRole === "ADMIN") {
@@ -805,7 +844,7 @@
     }
 
     function abrirModalConfiguracion() {
-        document.getElementById('config-nombre-local').value = perfilNegocio.nombre_local || "";
+        document.getElementById('config-nombre-local').value = obtenerNombreComercio();
         document.getElementById('config-moneda').value = perfilNegocio.moneda || "$";
         document.getElementById('config-mensaje-ticket').value = perfilNegocio.mensaje_ticket || "";
         document.getElementById('modal-config-negocio').style.display = 'flex';
@@ -838,7 +877,7 @@
     }
 
     function aplicarPerfilNegocioEnUI() {
-        document.getElementById('nombre-local-header').innerText = perfilNegocio.nombre_local || "ALMACÉN HONEY";
+        document.getElementById('nombre-local-header').innerText = obtenerNombreComercio();
         const utilidadActual = document.getElementById('utilidad-dia-monto').dataset.valor || "0";
         document.getElementById('utilidad-dia-monto').innerText = formatoMoneda(utilidadActual);
         actualizarPantalla();
@@ -891,6 +930,13 @@
             perfilNegocio.nombre_local = data.nombre_local;
             perfilNegocio.mensaje_ticket = data.mensaje_ticket;
             perfilNegocio.moneda = data.moneda || "$";
+            configuracionNegocio.nombre_comercio = nombre;
+            localStorage.setItem(NEGOCIO_NOMBRE_KEY, nombre);
+            await _supabase.from('configuracion_negocio').upsert({
+                user_id: currentUserId,
+                nombre_comercio: nombre,
+                logo_url: configuracionNegocio.logo_url || null
+            }, { onConflict: 'user_id' });
             aplicarPerfilNegocioEnUI();
             cerrarModalConfiguracion();
             showToast("Configuración de negocio guardada", "success");
@@ -991,7 +1037,7 @@
     }
 
     function generarTicketWhatsApp() {
-        const nombreLocal = (perfilNegocio.nombre_local || "ALMACÉN HONEY").toUpperCase();
+        const nombreLocal = obtenerNombreComercio().toUpperCase();
         const mensajeTicket = perfilNegocio.mensaje_ticket || "Gracias por su compra.";
         const detalle = carrito.map(p => {
             const cantidad = Number(p.cantidad || 1);
@@ -1056,7 +1102,7 @@
             const tarjeta = (ventas || []).filter(v => v.metodo_pago === 'Tarjeta').reduce((acc, v) => acc + Number(v.total || 0), 0);
 
             const fecha = new Date().toLocaleDateString('es-AR');
-            const nombreLocal = (perfilNegocio.nombre_local || "ALMACÉN HONEY").toUpperCase();
+            const nombreLocal = obtenerNombreComercio().toUpperCase();
             const mensaje = `📊 *X-REPORT DIARIO*\n📅 ${fecha}\n🏪 *${nombreLocal}*\n\n💰 *Ventas Totales:* ${formatoMoneda(totalVentas)}\n📈 *Ganancia Real:* ${formatoMoneda(gananciaReal)}\n\n💳 *Desglose de caja:*\n• Efectivo: ${formatoMoneda(efectivo)}\n• QR: ${formatoMoneda(qr)}\n• Tarjeta: ${formatoMoneda(tarjeta)}\n\n✅ Cierre diario generado correctamente.`;
 
             const mensajeCodificado = encodeURIComponent(mensaje);
@@ -1117,7 +1163,7 @@
                 if (errorSaldo) throw errorSaldo;
                 const saldoPendiente = (deudasCliente || []).reduce((acc, row) => acc + Number(row.monto || 0), 0);
                 ultimoClienteFiado = clienteFiado.trim();
-                ultimoMensajeFiadoWhatsApp = `Hola ${ultimoClienteFiado}, se registró una compra de ${formatoMoneda(totalVenta)} en ${perfilNegocio.nombre_local || 'Almacén Honey'}. Saldo pendiente: ${formatoMoneda(saldoPendiente)}. Gracias!`;
+                ultimoMensajeFiadoWhatsApp = `Hola ${ultimoClienteFiado}, se registró una compra de ${formatoMoneda(totalVenta)} en ${obtenerNombreComercio()}. Saldo pendiente: ${formatoMoneda(saldoPendiente)}. Gracias!`;
                 const label = document.getElementById('fiado-wsp-label');
                 const box = document.getElementById('fiado-wsp-actions');
                 if (label) label.textContent = `Fiado de ${ultimoClienteFiado} por ${formatoMoneda(totalVenta)}.`;

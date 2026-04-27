@@ -293,6 +293,7 @@
 <script>
     const SB_URL = "https://svpurpvbiujhcbiugrkh.supabase.co";
     const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2cHVycHZiaXVqaGNiaXVncmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3NDgzMTUsImV4cCI6MjA4MzMyNDMxNX0.AivKJ0_N0z_4T4vLNfUcE2hepJ1XXOO8-4fSA3PJXdc";
+    const NEGOCIO_NOMBRE_KEY = "honey_nombre_comercio";
     const _supabase = window.supabase.createClient(SB_URL, SB_KEY);
     let modoRegistro = false;
     let toastTimeoutRef = null;
@@ -325,6 +326,20 @@
             : 'Inicia sesión para entrar al dashboard.';
         document.getElementById('switch-label').innerText = modoRegistro ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?';
         document.getElementById('switch-btn').innerText = modoRegistro ? 'Inicia sesión' : 'Regístrate';
+    }
+
+    async function obtenerNombreComercioPorUsuario(userId) {
+        try {
+            const { data, error } = await _supabase
+                .from('configuracion_negocio')
+                .select('nombre_comercio')
+                .eq('user_id', userId)
+                .maybeSingle();
+            if (error) throw error;
+            return (data?.nombre_comercio || "").trim();
+        } catch (err) {
+            return "";
+        }
     }
 
     function abrirModalRecupero() {
@@ -372,10 +387,14 @@
                 toggleModoRegistro();
                 return;
             }
-            const { error } = await _supabase.auth.signInWithPassword({ email, password });
+            const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
             if (error) throw error;
-            showToast('Acceso correcto. Redirigiendo...', 'success', 1200);
-            setTimeout(() => { window.location.href = 'index.html'; }, 450);
+            const nombreComercio = await obtenerNombreComercioPorUsuario(data?.user?.id);
+            const bienvenida = nombreComercio ? `¡Bienvenidos a ${nombreComercio}!` : '¡Bienvenidos a Tu Almacén!';
+            localStorage.setItem(NEGOCIO_NOMBRE_KEY, nombreComercio || "Tu Almacén");
+            document.getElementById('subtitulo').innerText = bienvenida;
+            showToast('Acceso correcto. Redirigiendo...', 'success', 1300);
+            setTimeout(() => { window.location.href = 'index.html'; }, 700);
         } catch (err) {
             showToast(err.message || 'Error de autenticación.', 'error', 3200);
         }
