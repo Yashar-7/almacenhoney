@@ -564,6 +564,7 @@
         <button class="btn btn-abrir-pago" onclick="abrirModalPago()">Seleccionar método de pago</button>
         <div id="ticket-actions" class="ticket-actions">
             <button id="btn-whatsapp-ticket" class="btn btn-whatsapp" onclick="enviarTicketWhatsApp()">📲 Enviar Ticket por WhatsApp</button>
+            <button id="btn-ticket-listo" class="btn btn-cerrar-modal" onclick="cerrarTicketPendienteManual()">✕ Listo</button>
         </div>
     </div>
 </div>
@@ -614,6 +615,7 @@
 <div id="fiado-wsp-actions" class="fiado-wsp-actions">
     <div id="fiado-wsp-label" class="fiado-wsp-label">Venta fiada registrada.</div>
     <button id="btn-whatsapp-fiado" class="btn btn-whatsapp-fiado" onclick="enviarComprobanteFiadoWhatsApp()">📲 Enviar ticket por WhatsApp</button>
+    <button id="btn-fiado-listo" class="btn btn-cerrar-modal" onclick="cerrarTicketPendienteManual()">✕ Listo</button>
 </div>
 
 <script>
@@ -637,6 +639,7 @@
     let ultimoMensajeFiadoWhatsApp = "";
     let ultimoClienteFiado = "";
     let toastTimeoutRef = null;
+    let pendingCleanupTimeout = null;
     const scanner = new Html5Qrcode("reader");
 
     function showToast(message, type = "info", duration = 2200) {
@@ -750,6 +753,10 @@
     }
 
     function limpiarInterfaz() {
+        if (pendingCleanupTimeout) {
+            clearTimeout(pendingCleanupTimeout);
+            pendingCleanupTimeout = null;
+        }
         carrito = [];
         total = 0;
         ultimoTicketWhatsApp = "";
@@ -759,6 +766,16 @@
         const ticketActions = document.getElementById('ticket-actions');
         if (ticketActions) ticketActions.style.display = 'none';
         ocultarAccionFiadoWhatsApp();
+        const btnWsp = document.getElementById('btn-whatsapp-ticket');
+        if (btnWsp) {
+            btnWsp.disabled = false;
+            btnWsp.textContent = "📲 Enviar Ticket por WhatsApp";
+        }
+        const btnWspFiado = document.getElementById('btn-whatsapp-fiado');
+        if (btnWspFiado) {
+            btnWspFiado.disabled = false;
+            btnWspFiado.textContent = "📲 Enviar ticket por WhatsApp";
+        }
 
         const totalNode = document.getElementById('total-final');
         if (totalNode) totalNode.innerText = formatoMoneda(0);
@@ -771,6 +788,11 @@
         cerrarModalFiado();
         cerrarModalConfiguracion();
         actualizarPantalla();
+    }
+
+    function cerrarTicketPendienteManual() {
+        limpiarInterfaz();
+        showToast("Pantalla lista para la siguiente venta.", "info");
     }
 
     function ocultarAccionFiadoWhatsApp() {
@@ -982,19 +1004,31 @@
 
     function enviarTicketWhatsApp() {
         if (!ultimoTicketWhatsApp) return showToast("No hay ticket generado.", "error");
+        const btn = document.getElementById('btn-whatsapp-ticket');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = "Enviando...";
+        }
         const mensajeCodificado = encodeURIComponent(ultimoTicketWhatsApp);
         window.open(`https://wa.me/?text=${mensajeCodificado}`, "_blank");
-        const ticketActions = document.getElementById('ticket-actions');
-        if (ticketActions) ticketActions.style.display = 'none';
-        ultimoTicketWhatsApp = "";
+        pendingCleanupTimeout = setTimeout(() => {
+            limpiarInterfaz();
+            showToast("Venta finalizada con éxito.", "success");
+        }, 2000);
     }
     function enviarComprobanteFiadoWhatsApp() {
         if (!ultimoMensajeFiadoWhatsApp) return showToast("No hay comprobante fiado para enviar.", "error");
+        const btn = document.getElementById('btn-whatsapp-fiado');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = "Enviando...";
+        }
         const mensajeCodificado = encodeURIComponent(ultimoMensajeFiadoWhatsApp);
         window.open(`https://api.whatsapp.com/send?text=${mensajeCodificado}`, "_blank");
-        ocultarAccionFiadoWhatsApp();
-        ultimoMensajeFiadoWhatsApp = "";
-        ultimoClienteFiado = "";
+        pendingCleanupTimeout = setTimeout(() => {
+            limpiarInterfaz();
+            showToast("Venta finalizada con éxito.", "success");
+        }, 2000);
     }
 
     async function enviarXReportWhatsApp() {
@@ -1101,9 +1135,15 @@
             }
 
             ultimoTicketWhatsApp = ticketGenerado;
-            showToast("Venta Finalizada con Éxito", "success");
+            cerrarModalPago();
+            cerrarModalFiado();
+            if (metodo === 'Fiado') {
+                document.getElementById('ticket-actions').style.display = 'none';
+            } else {
+                document.getElementById('ticket-actions').style.display = 'block';
+            }
+            showToast("Venta registrada. Puedes enviar ticket o tocar Listo.", "info");
             if (currentUserRole === "ADMIN") await cargarUtilidadDelDia();
-            limpiarInterfaz();
         } catch (err) { showToast("Error: " + err.message, "error", 3000); }
     }
 </script>
