@@ -986,7 +986,8 @@
         const { data: { user }, error } = await _supabase.auth.getUser();
         if (error || !user) return null;
         currentUserId = user.id;
-        currentUserRole = user.user_metadata?.role || currentUserRole || 'ADMIN';
+        currentUserRole = String(user.user_metadata?.role || user.app_metadata?.role || localStorage.getItem("honey_user_role") || currentUserRole || 'EMPLEADO').toUpperCase();
+        localStorage.setItem("honey_user_role", currentUserRole);
         return currentUserRole;
     }
 
@@ -1003,7 +1004,8 @@
             return;
         }
         currentUserId = user.id;
-        currentUserRole = user.user_metadata?.role || 'ADMIN';
+        currentUserRole = String(user.user_metadata?.role || user.app_metadata?.role || localStorage.getItem("honey_user_role") || 'EMPLEADO').toUpperCase();
+        localStorage.setItem("honey_user_role", currentUserRole);
         await cargarConfiguracionNegocioInventario();
         aplicarSeguridad();
         setFechaGastoHoy();

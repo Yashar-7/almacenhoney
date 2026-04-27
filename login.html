@@ -11,6 +11,7 @@
             --bg: #0b1020;
             --card: rgba(19, 29, 47, 0.78);
             --line: #87ceda;
+            --honey: #f6c453;
             --violet: #8b5cf6;
             --cyan: #7dc7d4;
             --text: #e6edf5;
@@ -46,10 +47,10 @@
             padding: 26px 22px 20px 22px;
             border-radius: 18px;
             background: var(--card);
-            border: 1px solid rgba(135, 206, 218, 0.62);
+            border: 1px solid rgba(246, 196, 83, 0.7);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
-            box-shadow: 0 0 0 1px rgba(125, 199, 212, 0.15), 0 0 26px rgba(125, 199, 212, 0.28), 0 0 44px rgba(139, 92, 246, 0.18), 0 18px 40px rgba(0, 0, 0, 0.35);
+            box-shadow: 0 0 0 1px rgba(246, 196, 83, 0.22), 0 0 18px rgba(246, 196, 83, 0.15), 0 18px 40px rgba(0, 0, 0, 0.35);
         }
         .brand {
             margin: 0;
@@ -160,6 +161,56 @@
         .forgot-link {
             opacity: 0.9;
         }
+        .glass-doors {
+            position: fixed;
+            inset: 0;
+            z-index: 2500;
+            display: none;
+            pointer-events: none;
+            background: rgba(11, 16, 32, 0.45);
+        }
+        .glass-doors.show {
+            display: block;
+        }
+        .door-panel {
+            position: absolute;
+            top: 0;
+            width: 50%;
+            height: 100%;
+            backdrop-filter: blur(7px);
+            -webkit-backdrop-filter: blur(7px);
+            background: linear-gradient(180deg, rgba(125, 199, 212, 0.15), rgba(246, 196, 83, 0.12));
+            border: 1px solid rgba(125, 199, 212, 0.8);
+            box-shadow: inset 0 0 0 1px rgba(246, 196, 83, 0.45), 0 0 18px rgba(125, 199, 212, 0.25);
+        }
+        .door-left { left: 0; border-right: 1px solid rgba(246, 196, 83, 0.85); }
+        .door-right { right: 0; border-left: 1px solid rgba(246, 196, 83, 0.85); }
+        .door-panel::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 8%;
+            width: 24%;
+            height: 100%;
+            background: linear-gradient(110deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.04));
+            opacity: 0.4;
+        }
+        .glass-doors.open .door-left { transform: translateX(-102%); }
+        .glass-doors.open .door-right { transform: translateX(102%); }
+        .glass-doors.open .door-panel { transition: transform .85s ease; }
+        .bienvenida-doors {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            color: #f3f6fb;
+            font-weight: 700;
+            font-size: clamp(1rem, 2.8vw, 1.5rem);
+            text-align: center;
+            text-shadow: 0 0 12px rgba(125, 199, 212, 0.5);
+            width: min(90vw, 700px);
+            padding: 0 16px;
+        }
         .toast-wrap {
             position: fixed;
             top: 16px;
@@ -237,6 +288,11 @@
 <body>
     <canvas id="particles"></canvas>
     <div id="toast-wrap" class="toast-wrap"></div>
+    <div id="glass-doors" class="glass-doors">
+        <div class="door-panel door-left"></div>
+        <div class="door-panel door-right"></div>
+        <div id="bienvenida-doors" class="bienvenida-doors">¡Bienvenidos a Tu Almacén!</div>
+    </div>
 
     <div class="card">
         <h1 class="brand">Smart Tech<small>Secure Access</small></h1>
@@ -342,6 +398,21 @@
         }
     }
 
+    function obtenerRolUsuario(user) {
+        return String(user?.user_metadata?.role || user?.app_metadata?.role || 'EMPLEADO').toUpperCase();
+    }
+
+    async function reproducirPuertasDeVidrio(nombreComercio) {
+        const doors = document.getElementById('glass-doors');
+        const msg = document.getElementById('bienvenida-doors');
+        if (!doors || !msg) return;
+        msg.textContent = nombreComercio ? `¡Bienvenidos a ${nombreComercio}!` : '¡Bienvenidos a Tu Almacén!';
+        doors.classList.add('show');
+        await new Promise((r) => setTimeout(r, 520));
+        doors.classList.add('open');
+        await new Promise((r) => setTimeout(r, 900));
+    }
+
     function abrirModalRecupero() {
         const modal = document.getElementById('modal-recupero');
         const emailActual = document.getElementById('email').value.trim();
@@ -391,10 +462,13 @@
             if (error) throw error;
             const nombreComercio = await obtenerNombreComercioPorUsuario(data?.user?.id);
             const bienvenida = nombreComercio ? `¡Bienvenidos a ${nombreComercio}!` : '¡Bienvenidos a Tu Almacén!';
+            const rol = obtenerRolUsuario(data?.user);
             localStorage.setItem(NEGOCIO_NOMBRE_KEY, nombreComercio || "Tu Almacén");
+            localStorage.setItem("honey_user_role", rol);
             document.getElementById('subtitulo').innerText = bienvenida;
+            await reproducirPuertasDeVidrio(nombreComercio);
             showToast('Acceso correcto. Redirigiendo...', 'success', 1300);
-            setTimeout(() => { window.location.href = 'index.html'; }, 700);
+            setTimeout(() => { window.location.href = 'index.html'; }, 200);
         } catch (err) {
             showToast(err.message || 'Error de autenticación.', 'error', 3200);
         }

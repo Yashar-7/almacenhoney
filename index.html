@@ -544,7 +544,7 @@
     </div>
 
     <div onclick="irAInventario()" class="btn-float">📦</div>
-    <div onclick="abrirModalConfiguracion()" class="btn-float btn-float-left">⚙️</div>
+    <div id="btn-config-float" onclick="abrirModalConfiguracion()" class="btn-float btn-float-left">⚙️</div>
 
     <div id="reader"></div>
     <button class="btn btn-scan" onclick="iniciarEscaneo()">➕ ESCANEAR PRODUCTO</button>
@@ -716,14 +716,20 @@
             return;
         }
         currentUserId = user.id;
-        currentUserRole = user.user_metadata?.role || 'ADMIN';
+        currentUserRole = String(user.user_metadata?.role || user.app_metadata?.role || localStorage.getItem("honey_user_role") || 'EMPLEADO').toUpperCase();
+        localStorage.setItem("honey_user_role", currentUserRole);
         await cargarConfiguracionNegocioUsuario();
         document.getElementById('appContent').style.display = 'block';
         document.getElementById('roleDisplay').innerText = "ROL: " + currentUserRole;
+        const btnConfigFloat = document.getElementById('btn-config-float');
+        if (btnConfigFloat) btnConfigFloat.style.display = currentUserRole === "ADMIN" ? 'flex' : 'none';
         if (currentUserRole === "ADMIN") {
             document.getElementById('utilidad-dia-card').style.display = 'inline-block';
             document.getElementById('btn-xreport').style.display = 'inline-block';
             await cargarUtilidadDelDia();
+        } else {
+            document.getElementById('utilidad-dia-card').style.display = 'none';
+            document.getElementById('btn-xreport').style.display = 'none';
         }
     }
 
@@ -844,6 +850,10 @@
     }
 
     function abrirModalConfiguracion() {
+        if (currentUserRole !== "ADMIN") {
+            showToast("Solo ADMIN puede editar ajustes del negocio.", "error");
+            return;
+        }
         document.getElementById('config-nombre-local').value = obtenerNombreComercio();
         document.getElementById('config-moneda').value = perfilNegocio.moneda || "$";
         document.getElementById('config-mensaje-ticket').value = perfilNegocio.mensaje_ticket || "";
