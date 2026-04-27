@@ -748,6 +748,31 @@
         cerrarModalFiado();
         finalizarVenta('Fiado', cliente);
     }
+
+    function limpiarInterfaz() {
+        carrito = [];
+        total = 0;
+        ultimoTicketWhatsApp = "";
+        ultimoMensajeFiadoWhatsApp = "";
+        ultimoClienteFiado = "";
+
+        const ticketActions = document.getElementById('ticket-actions');
+        if (ticketActions) ticketActions.style.display = 'none';
+        ocultarAccionFiadoWhatsApp();
+
+        const totalNode = document.getElementById('total-final');
+        if (totalNode) totalNode.innerText = formatoMoneda(0);
+        const pagaConNode = document.getElementById('paga-con');
+        if (pagaConNode) pagaConNode.value = "";
+        const vueltoNode = document.getElementById('vuelto');
+        if (vueltoNode) vueltoNode.innerText = formatoMoneda(0);
+
+        cerrarModalPago();
+        cerrarModalFiado();
+        cerrarModalConfiguracion();
+        actualizarPantalla();
+    }
+
     function ocultarAccionFiadoWhatsApp() {
         const box = document.getElementById('fiado-wsp-actions');
         if (box) box.style.display = 'none';
@@ -959,11 +984,17 @@
         if (!ultimoTicketWhatsApp) return showToast("No hay ticket generado.", "error");
         const mensajeCodificado = encodeURIComponent(ultimoTicketWhatsApp);
         window.open(`https://wa.me/?text=${mensajeCodificado}`, "_blank");
+        const ticketActions = document.getElementById('ticket-actions');
+        if (ticketActions) ticketActions.style.display = 'none';
+        ultimoTicketWhatsApp = "";
     }
     function enviarComprobanteFiadoWhatsApp() {
         if (!ultimoMensajeFiadoWhatsApp) return showToast("No hay comprobante fiado para enviar.", "error");
         const mensajeCodificado = encodeURIComponent(ultimoMensajeFiadoWhatsApp);
         window.open(`https://api.whatsapp.com/send?text=${mensajeCodificado}`, "_blank");
+        ocultarAccionFiadoWhatsApp();
+        ultimoMensajeFiadoWhatsApp = "";
+        ultimoClienteFiado = "";
     }
 
     async function enviarXReportWhatsApp() {
@@ -1004,13 +1035,15 @@
 
     async function finalizarVenta(metodo, clienteFiadoInput = null) {
         if(total === 0) return showToast("Carrito vacío", "error");
-        const resumenProductos = carrito.map(p => `${p.nombre} x${p.cantidad || 1}`).join(", ");
-        const gananciaNeta = carrito.reduce((acc, p) => {
+        const carritoVenta = carrito.map(item => ({ ...item }));
+        const resumenProductos = carritoVenta.map(p => `${p.nombre} x${p.cantidad || 1}`).join(", ");
+        const gananciaNeta = carritoVenta.reduce((acc, p) => {
             const venta = Number(p.precio || 0);
             const costo = Number(p.precio_costo || 0);
             const cantidad = Number(p.cantidad || 1);
             return acc + ((venta - costo) * cantidad);
         }, 0);
+        const totalVenta = Number(total.toFixed(2));
         const ticketGenerado = generarTicketWhatsApp();
         try {
             let clienteFiado = null;
@@ -1038,7 +1071,7 @@
                     .insert([{
                         user_id: currentUserId,
                         nombre: clienteFiado.trim(),
-                        monto: Number(total.toFixed(2)),
+                        monto: totalVenta,
                         fecha: new Date().toISOString()
                     }]);
                 if (errorFiado) throw errorFiado;
@@ -1050,10 +1083,10 @@
                 if (errorSaldo) throw errorSaldo;
                 const saldoPendiente = (deudasCliente || []).reduce((acc, row) => acc + Number(row.monto || 0), 0);
                 ultimoClienteFiado = clienteFiado.trim();
-                ultimoMensajeFiadoWhatsApp = `Hola ${ultimoClienteFiado}, se registró una compra de ${formatoMoneda(total)} en ${perfilNegocio.nombre_local || 'Almacén Honey'}. Saldo pendiente: ${formatoMoneda(saldoPendiente)}. Gracias!`;
+                ultimoMensajeFiadoWhatsApp = `Hola ${ultimoClienteFiado}, se registró una compra de ${formatoMoneda(totalVenta)} en ${perfilNegocio.nombre_local || 'Almacén Honey'}. Saldo pendiente: ${formatoMoneda(saldoPendiente)}. Gracias!`;
                 const label = document.getElementById('fiado-wsp-label');
                 const box = document.getElementById('fiado-wsp-actions');
-                if (label) label.textContent = `Fiado de ${ultimoClienteFiado} por ${formatoMoneda(total)}.`;
+                if (label) label.textContent = `Fiado de ${ultimoClienteFiado} por ${formatoMoneda(totalVenta)}.`;
                 if (box) box.style.display = 'block';
             } else {
                 ultimoMensajeFiadoWhatsApp = "";
@@ -1061,20 +1094,16 @@
                 ocultarAccionFiadoWhatsApp();
             }
 
-            for (const item of carrito) {
+            for (const item of carritoVenta) {
                 const descuento = Number(item.cantidad || 1);
                 const nuevoStock = Math.max(0, Number(item.stock_actual || 0) - descuento);
                 await _supabase.from('productos_almacen').update({ stock: nuevoStock }).eq('codigo_barras', item.codigo).eq('user_id', currentUserId);
             }
 
             ultimoTicketWhatsApp = ticketGenerado;
-            cerrarModalPago();
-            document.getElementById('ticket-actions').style.display = 'block';
-            showToast("Venta procesada por: " + currentUserRole, "success");
+            showToast("Venta Finalizada con Éxito", "success");
             if (currentUserRole === "ADMIN") await cargarUtilidadDelDia();
-            carrito = [];
-            document.getElementById('paga-con').value = "";
-            actualizarPantalla();
+            limpiarInterfaz();
         } catch (err) { showToast("Error: " + err.message, "error", 3000); }
     }
 </script>
