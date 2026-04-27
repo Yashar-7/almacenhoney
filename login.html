@@ -5,7 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#0b1020">
     <title>Smart Tech - Acceso Seguro</title>
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
+    <script>
+        if (!window.supabase) {
+            alert('Error: Librerías de seguridad bloqueadas por el navegador');
+        }
+    </script>
     <style>
         :root {
             --bg: #0b1020;
@@ -161,69 +166,6 @@
         .forgot-link {
             opacity: 0.9;
         }
-        .glass-doors {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 100000;
-            display: none;
-            pointer-events: none;
-            background: rgba(11, 16, 32, 0.55);
-            opacity: 0;
-        }
-        .glass-doors.show {
-            display: flex;
-            opacity: 1;
-        }
-        .glass-doors.active {
-            display: flex;
-            opacity: 1;
-        }
-        .door-panel {
-            position: absolute;
-            top: 0;
-            width: 50%;
-            height: 100%;
-            transform: translateX(0);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            background: rgba(255, 255, 255, 0.1);
-            border: 2px solid #f2b705;
-            box-shadow: inset 0 0 0 1px rgba(242, 183, 5, 0.35), 0 0 16px rgba(242, 183, 5, 0.24);
-        }
-        .door-left { left: 0; border-right: 2px solid #f2b705; }
-        .door-right { right: 0; border-left: 2px solid #f2b705; }
-        .door-panel::after {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: 8%;
-            width: 24%;
-            height: 100%;
-            background: linear-gradient(110deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.06));
-            opacity: 0.42;
-        }
-        .glass-doors.open .door-left { transform: translateX(-105%); }
-        .glass-doors.open .door-right { transform: translateX(105%); }
-        .glass-doors.open .door-panel { transition: transform 1.5s ease; }
-        .bienvenida-doors {
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            color: #f3f6fb;
-            font-weight: 700;
-            font-size: clamp(1rem, 2.8vw, 1.5rem);
-            text-align: center;
-            text-shadow: 0 0 12px rgba(125, 199, 212, 0.5);
-            width: min(90vw, 700px);
-            padding: 0 16px;
-            opacity: 1;
-            transition: opacity .45s ease;
-        }
-        .glass-doors.open .bienvenida-doors { opacity: 0; }
         .toast-wrap {
             position: fixed;
             top: 16px;
@@ -301,11 +243,6 @@
 <body>
     <canvas id="particles"></canvas>
     <div id="toast-wrap" class="toast-wrap"></div>
-    <div id="glass-doors" class="glass-doors">
-        <div class="door-panel door-left"></div>
-        <div class="door-panel door-right"></div>
-        <div id="bienvenida-doors" class="bienvenida-doors">¡Bienvenidos a Tu Almacén!</div>
-    </div>
 
     <div class="card">
         <h1 class="brand">Smart Tech<small>Secure Access</small></h1>
@@ -367,7 +304,6 @@
     const _supabase = window.supabase.createClient(SB_URL, SB_KEY);
     let modoRegistro = false;
     let toastTimeoutRef = null;
-    let authRedirectHandled = false;
 
     function showToast(message, type = "info", duration = 2200) {
         const wrap = document.getElementById('toast-wrap');
@@ -419,24 +355,6 @@
         return String(user?.user_metadata?.role || user?.app_metadata?.role || 'EMPLEADO').toUpperCase();
     }
 
-    async function ejecutarTransicion(nombreComercio) {
-        const doors = document.getElementById('glass-doors');
-        const msg = document.getElementById('bienvenida-doors');
-        if (!doors || !msg) return;
-        msg.textContent = nombreComercio ? `¡Bienvenidos a ${nombreComercio}!` : '¡Bienvenidos a Tu Almacén!';
-        doors.classList.remove('open');
-        doors.style.display = 'flex';
-        doors.style.opacity = '1';
-        doors.classList.add('active', 'show');
-        console.log('Puertas Iniciadas');
-        await new Promise((r) => setTimeout(r, 150));
-        doors.classList.add('open');
-        await new Promise((resolve) => setTimeout(resolve, 1800));
-        doors.classList.remove('active', 'show', 'open');
-        doors.style.display = 'none';
-        doors.style.opacity = '0';
-        console.log('Redireccionando');
-    }
 
     function abrirModalRecupero() {
         const modal = document.getElementById('modal-recupero');
@@ -491,8 +409,6 @@
             localStorage.setItem(NEGOCIO_NOMBRE_KEY, nombreComercio || "Tu Almacén");
             localStorage.setItem("honey_user_role", rol);
             document.getElementById('subtitulo').innerText = bienvenida;
-            authRedirectHandled = true;
-            await ejecutarTransicion(nombreComercio);
             showToast('Acceso correcto. Redirigiendo...', 'success', 1300);
             window.location.href = 'index.html';
         } catch (err) {
@@ -557,7 +473,6 @@
     });
 
     _supabase.auth.onAuthStateChange((event, session) => {
-        if (authRedirectHandled) return;
         if (event === 'SIGNED_IN' && session?.user) {
             window.location.href = 'index.html';
         }

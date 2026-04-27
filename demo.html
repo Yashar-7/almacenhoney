@@ -5,8 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#f39c12">
     <title>DEMO - Gestión Almacén Honey</title>
-    <script src="https://unpkg.com/html5-qrcode"></script>
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
+    <script>
+        if (!window.supabase) {
+            alert('Error: Librerías de seguridad bloqueadas por el navegador');
+        }
+    </script>
     <style>
         :root { --naranja: #f39c12; --amarillo: #f1c40f; --negro: #1a1a1a; --rojo: #e74c3c; --verde: #2ecc71; --azul: #2980b9; }
         body { font-family: sans-serif; background: var(--negro); color: white; padding: 10px; text-align: center; margin:0; }

@@ -5,8 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#fff8e1">
     <title>Almacén Honey - Punto de Venta Seguro</title>
-    <script src="https://unpkg.com/html5-qrcode"></script>
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js" crossorigin="anonymous"></script>
+    <script>
+        if (!window.supabase) {
+            alert('Error: Librerías de seguridad bloqueadas por el navegador');
+        }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -516,9 +522,53 @@
             filter: brightness(0.95);
             box-shadow: 0 3px 8px rgba(0, 0, 0, 0.24);
         }
+        /* Puertas de bienvenida en dashboard */
+        #gate-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 9999;
+            display: flex;
+            pointer-events: auto;
+            background: #0b1020;
+        }
+        .gate-left, .gate-right {
+            position: absolute;
+            top: 0;
+            width: 50%;
+            height: 100%;
+            background: rgba(11, 16, 32, 0.96);
+            border: 2px solid #f2b705;
+            box-shadow: inset 0 0 0 1px rgba(242, 183, 5, 0.45);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        .gate-left { left: 0; border-right: 2px solid #f2b705; }
+        .gate-right { right: 0; border-left: 2px solid #f2b705; }
+        #gate-message {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            color: #f3f6fb;
+            font-size: clamp(1rem, 2.8vw, 1.45rem);
+            font-weight: 700;
+            text-align: center;
+            width: min(90vw, 700px);
+            z-index: 10000;
+            text-shadow: 0 0 10px rgba(242, 183, 5, 0.45);
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
+<div id="gate-container">
+    <div class="gate-left"></div>
+    <div class="gate-right"></div>
+    <div id="gate-message">¡Bienvenidos a Tu Almacén!</div>
+</div>
 <div id="toast-wrap" class="toast-wrap"></div>
 
 <div id="loginOverlay" style="display:none;">
@@ -674,8 +724,35 @@
         await cargarPerfilNegocio();
     });
 
+    window.addEventListener('load', () => {
+        ejecutarPuertasDashboard();
+    });
+
     function obtenerNombreComercio() {
         return (configuracionNegocio.nombre_comercio || perfilNegocio.nombre_local || "Tu Almacén").trim();
+    }
+
+    function ejecutarPuertasDashboard() {
+        const gate = document.getElementById('gate-container');
+        const left = gate?.querySelector('.gate-left');
+        const right = gate?.querySelector('.gate-right');
+        const msg = document.getElementById('gate-message');
+        if (!gate || !left || !right) return;
+        const nombre = localStorage.getItem(NEGOCIO_NOMBRE_KEY) || obtenerNombreComercio() || "Tu Almacén";
+        if (msg) msg.textContent = `¡Bienvenidos a ${nombre}!`;
+        if (!window.gsap) {
+            setTimeout(() => { gate.style.display = 'none'; }, 1200);
+            return;
+        }
+        gsap.timeline({
+            onComplete: () => { gate.style.display = 'none'; }
+        })
+        .to([left, right], {
+            duration: 1.5,
+            x: (i) => i === 0 ? '-100%' : '100%',
+            ease: "power2.inOut"
+        }, 0)
+        .to(msg, { duration: 0.55, opacity: 0, ease: "power1.out" }, 0.45);
     }
 
     async function cargarConfiguracionNegocioUsuario() {
