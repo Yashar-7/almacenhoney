@@ -622,6 +622,7 @@
     const SB_URL = "https://svpurpvbiujhcbiugrkh.supabase.co";
     const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2cHVycHZiaXVqaGNiaXVncmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3NDgzMTUsImV4cCI6MjA4MzMyNDMxNX0.AivKJ0_N0z_4T4vLNfUcE2hepJ1XXOO8-4fSA3PJXdc";
     const NEGOCIO_NOMBRE_KEY = "honey_nombre_comercio";
+    const FORCE_ADMIN_EMAIL = "romarsalazar777@gmail.com";
     
     // Inicialización corregida
     const _supabase = window.supabase.createClient(SB_URL, SB_KEY);
@@ -705,6 +706,12 @@
         return `${moneda}${Number(valor || 0).toFixed(2)}`;
     }
 
+    function resolverRolUsuario(user) {
+        const email = String(user?.email || "").toLowerCase();
+        if (email === FORCE_ADMIN_EMAIL) return "ADMIN";
+        return String(user?.user_metadata?.role || user?.app_metadata?.role || localStorage.getItem("honey_user_role") || 'EMPLEADO').toUpperCase();
+    }
+
     function verificarAcceso() {
         window.location.href = 'login.html';
     }
@@ -716,7 +723,7 @@
             return;
         }
         currentUserId = user.id;
-        currentUserRole = String(user.user_metadata?.role || user.app_metadata?.role || localStorage.getItem("honey_user_role") || 'EMPLEADO').toUpperCase();
+        currentUserRole = resolverRolUsuario(user);
         localStorage.setItem("honey_user_role", currentUserRole);
         await cargarConfiguracionNegocioUsuario();
         document.getElementById('appContent').style.display = 'block';

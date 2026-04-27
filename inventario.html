@@ -709,6 +709,7 @@
     const SB_URL = "https://svpurpvbiujhcbiugrkh.supabase.co";
     const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2cHVycHZiaXVqaGNiaXVncmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3NDgzMTUsImV4cCI6MjA4MzMyNDMxNX0.AivKJ0_N0z_4T4vLNfUcE2hepJ1XXOO8-4fSA3PJXdc";
     const NEGOCIO_NOMBRE_KEY = "honey_nombre_comercio";
+    const FORCE_ADMIN_EMAIL = "romarsalazar777@gmail.com";
     const _supabase = supabase.createClient(SB_URL, SB_KEY);
     const scanner = new Html5Qrcode("reader");
 
@@ -722,6 +723,12 @@
     let textoBusquedaInventario = '';
     let currentUserId = null;
     let nombreComercioActual = "Tu Almacén";
+
+    function resolverRolUsuario(user) {
+        const email = String(user?.email || "").toLowerCase();
+        if (email === FORCE_ADMIN_EMAIL) return "ADMIN";
+        return String(user?.user_metadata?.role || user?.app_metadata?.role || localStorage.getItem("honey_user_role") || 'EMPLEADO').toUpperCase();
+    }
 
     function aplicarNombreNegocioUI() {
         const titulo = document.getElementById('titulo-negocio');
@@ -986,7 +993,7 @@
         const { data: { user }, error } = await _supabase.auth.getUser();
         if (error || !user) return null;
         currentUserId = user.id;
-        currentUserRole = String(user.user_metadata?.role || user.app_metadata?.role || localStorage.getItem("honey_user_role") || currentUserRole || 'EMPLEADO').toUpperCase();
+        currentUserRole = resolverRolUsuario(user);
         localStorage.setItem("honey_user_role", currentUserRole);
         return currentUserRole;
     }
@@ -1004,7 +1011,7 @@
             return;
         }
         currentUserId = user.id;
-        currentUserRole = String(user.user_metadata?.role || user.app_metadata?.role || localStorage.getItem("honey_user_role") || 'EMPLEADO').toUpperCase();
+        currentUserRole = resolverRolUsuario(user);
         localStorage.setItem("honey_user_role", currentUserRole);
         await cargarConfiguracionNegocioInventario();
         aplicarSeguridad();

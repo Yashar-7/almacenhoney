@@ -10,7 +10,7 @@
         :root {
             --bg: #0b1020;
             --card: rgba(19, 29, 47, 0.78);
-            --line: #87ceda;
+            --line: #f2b705;
             --honey: #f6c453;
             --violet: #8b5cf6;
             --cyan: #7dc7d4;
@@ -100,7 +100,7 @@
         input {
             width: 100%;
             border-radius: 10px;
-            border: 1px solid #3a4a63;
+            border: 1px solid rgba(242, 183, 5, 0.45);
             background: rgba(9, 15, 29, 0.8);
             color: var(--text);
             padding: 12px 44px 12px 35px;
@@ -109,8 +109,8 @@
             transition: border-color .2s ease, box-shadow .2s ease;
         }
         input:focus {
-            border-color: #91ccd8;
-            box-shadow: 0 0 0 3px rgba(145, 204, 216, 0.16);
+            border-color: rgba(242, 183, 5, 0.75);
+            box-shadow: 0 0 0 3px rgba(242, 183, 5, 0.16);
         }
         .btn-eye {
             position: absolute;
@@ -136,9 +136,9 @@
             margin-top: 14px;
         }
         .btn-main {
-            background: linear-gradient(90deg, #7049f2, #42c2db);
+            background: linear-gradient(90deg, #f2b705, #f57c00);
             color: #fff;
-            box-shadow: 0 8px 20px rgba(66, 194, 219, 0.2);
+            box-shadow: 0 8px 20px rgba(245, 124, 0, 0.24);
         }
         .switch {
             text-align: center;
@@ -164,12 +164,15 @@
         .glass-doors {
             position: fixed;
             inset: 0;
-            z-index: 2500;
+            z-index: 9999;
             display: none;
             pointer-events: none;
-            background: rgba(11, 16, 32, 0.45);
+            background: rgba(11, 16, 32, 0.55);
         }
         .glass-doors.show {
+            display: block;
+        }
+        .glass-doors.active {
             display: block;
         }
         .door-panel {
@@ -177,14 +180,15 @@
             top: 0;
             width: 50%;
             height: 100%;
-            backdrop-filter: blur(7px);
-            -webkit-backdrop-filter: blur(7px);
-            background: linear-gradient(180deg, rgba(125, 199, 212, 0.15), rgba(246, 196, 83, 0.12));
-            border: 1px solid rgba(125, 199, 212, 0.8);
-            box-shadow: inset 0 0 0 1px rgba(246, 196, 83, 0.45), 0 0 18px rgba(125, 199, 212, 0.25);
+            transform: translateX(0);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid #f2b705;
+            box-shadow: inset 0 0 0 1px rgba(242, 183, 5, 0.35), 0 0 16px rgba(242, 183, 5, 0.24);
         }
-        .door-left { left: 0; border-right: 1px solid rgba(246, 196, 83, 0.85); }
-        .door-right { right: 0; border-left: 1px solid rgba(246, 196, 83, 0.85); }
+        .door-left { left: 0; border-right: 2px solid #f2b705; }
+        .door-right { right: 0; border-left: 2px solid #f2b705; }
         .door-panel::after {
             content: "";
             position: absolute;
@@ -192,12 +196,12 @@
             left: 8%;
             width: 24%;
             height: 100%;
-            background: linear-gradient(110deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.04));
-            opacity: 0.4;
+            background: linear-gradient(110deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.06));
+            opacity: 0.42;
         }
-        .glass-doors.open .door-left { transform: translateX(-102%); }
-        .glass-doors.open .door-right { transform: translateX(102%); }
-        .glass-doors.open .door-panel { transition: transform .85s ease; }
+        .glass-doors.open .door-left { transform: translateX(-105%); }
+        .glass-doors.open .door-right { transform: translateX(105%); }
+        .glass-doors.open .door-panel { transition: transform 1.5s ease; }
         .bienvenida-doors {
             position: absolute;
             left: 50%;
@@ -210,7 +214,10 @@
             text-shadow: 0 0 12px rgba(125, 199, 212, 0.5);
             width: min(90vw, 700px);
             padding: 0 16px;
+            opacity: 1;
+            transition: opacity .45s ease;
         }
+        .glass-doors.open .bienvenida-doors { opacity: 0; }
         .toast-wrap {
             position: fixed;
             top: 16px;
@@ -350,9 +357,11 @@
     const SB_URL = "https://svpurpvbiujhcbiugrkh.supabase.co";
     const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2cHVycHZiaXVqaGNiaXVncmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3NDgzMTUsImV4cCI6MjA4MzMyNDMxNX0.AivKJ0_N0z_4T4vLNfUcE2hepJ1XXOO8-4fSA3PJXdc";
     const NEGOCIO_NOMBRE_KEY = "honey_nombre_comercio";
+    const FORCE_ADMIN_EMAIL = "romarsalazar777@gmail.com";
     const _supabase = window.supabase.createClient(SB_URL, SB_KEY);
     let modoRegistro = false;
     let toastTimeoutRef = null;
+    let authRedirectHandled = false;
 
     function showToast(message, type = "info", duration = 2200) {
         const wrap = document.getElementById('toast-wrap');
@@ -399,6 +408,8 @@
     }
 
     function obtenerRolUsuario(user) {
+        const email = String(user?.email || "").toLowerCase();
+        if (email === FORCE_ADMIN_EMAIL) return "ADMIN";
         return String(user?.user_metadata?.role || user?.app_metadata?.role || 'EMPLEADO').toUpperCase();
     }
 
@@ -407,10 +418,12 @@
         const msg = document.getElementById('bienvenida-doors');
         if (!doors || !msg) return;
         msg.textContent = nombreComercio ? `¡Bienvenidos a ${nombreComercio}!` : '¡Bienvenidos a Tu Almacén!';
-        doors.classList.add('show');
-        await new Promise((r) => setTimeout(r, 520));
+        doors.classList.remove('open');
+        doors.classList.add('active', 'show');
+        await new Promise((r) => setTimeout(r, 150));
         doors.classList.add('open');
-        await new Promise((r) => setTimeout(r, 900));
+        await new Promise((r) => setTimeout(r, 1550));
+        doors.classList.remove('active', 'show', 'open');
     }
 
     function abrirModalRecupero() {
@@ -466,9 +479,10 @@
             localStorage.setItem(NEGOCIO_NOMBRE_KEY, nombreComercio || "Tu Almacén");
             localStorage.setItem("honey_user_role", rol);
             document.getElementById('subtitulo').innerText = bienvenida;
+            authRedirectHandled = true;
             await reproducirPuertasDeVidrio(nombreComercio);
             showToast('Acceso correcto. Redirigiendo...', 'success', 1300);
-            setTimeout(() => { window.location.href = 'index.html'; }, 200);
+            window.location.href = 'index.html';
         } catch (err) {
             showToast(err.message || 'Error de autenticación.', 'error', 3200);
         }
@@ -531,6 +545,7 @@
     });
 
     _supabase.auth.onAuthStateChange((event, session) => {
+        if (authRedirectHandled) return;
         if (event === 'SIGNED_IN' && session?.user) {
             window.location.href = 'index.html';
         }
