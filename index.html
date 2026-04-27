@@ -3,44 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#0f172a">
+    <meta name="theme-color" content="#fff8e1">
     <title>Almacén Honey - Punto de Venta Seguro</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --negro: #0a0f1f;
-            --gris: #111827;
-            --cian: #8ccfdc;
-            --violeta: #8c7fd4;
-            --acento: #fbbf24;
-            --rojo: #ff5f5f;
-            --panel: rgba(255, 255, 255, 0.05);
-            --panel-soft: rgba(255, 255, 255, 0.035);
-            --txt-soft: #d6deea;
+            --fondo: #fff8e1;
+            --miel: #fbc02d;
+            --miel-soft: rgba(251, 192, 45, 0.26);
+            --naranja: #f57c00;
+            --amarillo-fuerte: #fdd835;
+            --acento: #ffb300;
+            --choco: #4e342e;
+            --choco-soft: #6d4c41;
+            --rojo: #c62828;
+            --panel: rgba(255, 193, 7, 0.22);
+            --panel-soft: rgba(255, 193, 7, 0.16);
+            --txt-soft: #795548;
         }
         body {
-            font-family: Arial, sans-serif;
+            font-family: "Poppins", Arial, sans-serif;
             margin: 0;
             padding: 10px;
-            color: #e5e7eb;
+            color: var(--choco);
             min-height: 100vh;
             box-sizing: border-box;
-            background: radial-gradient(circle at top right, rgba(139, 92, 246, 0.18), transparent 45%),
-                        radial-gradient(circle at bottom left, rgba(34, 211, 238, 0.12), transparent 40%),
-                        var(--negro);
+            background: var(--fondo);
         }
         
         /* PANTALLA DE BLOQUEO */
-        #loginOverlay { position: fixed; inset: 0; background: rgba(10, 15, 31, 0.96); z-index: 2000; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+        #loginOverlay { position: fixed; inset: 0; background: rgba(255, 248, 225, 0.98); z-index: 2000; display: flex; align-items: center; justify-content: center; flex-direction: column; }
         .login-card {
-            background: rgba(17, 24, 39, 0.92);
+            background: rgba(255, 236, 179, 0.88);
             padding: 30px;
             border-radius: 20px;
-            border: 1px solid var(--cian);
+            border: none;
             width: 280px;
             text-align: center;
-            box-shadow: 0 0 18px rgba(34, 211, 238, 0.4), 0 0 22px rgba(139, 92, 246, 0.25);
+            box-shadow: 0 8px 24px rgba(141, 110, 99, 0.25);
         }
         
         .header {
@@ -49,7 +53,7 @@
             border-radius: 16px;
             padding: 12px 12px 14px 12px;
             margin-bottom: 16px;
-            box-shadow: inset 0 2px 0 rgba(140, 207, 220, 0.55);
+            box-shadow: inset 0 3px 0 rgba(245, 124, 0, 0.45), 0 6px 18px rgba(141, 110, 99, 0.18);
         }
         .header img { height: 58px; width: auto; margin-bottom: 5px; }
         @media (max-width: 600px) {
@@ -60,22 +64,21 @@
             margin: 0;
             font-size: 1.5rem;
             letter-spacing: 1px;
-            color: #d6edf2;
+            color: var(--choco);
         }
         .utilidad-card {
             margin: 8px auto 0 auto;
             width: fit-content;
             font-size: 0.78rem;
-            color: #d4e6eb;
+            color: var(--choco);
             border-radius: 999px;
             padding: 6px 13px;
-            box-shadow: inset 0 1px 0 rgba(140, 207, 220, 0.5);
-            background: rgba(255, 255, 255, 0.05);
+            box-shadow: inset 0 1px 0 rgba(245, 124, 0, 0.35);
+            background: rgba(255, 235, 179, 0.72);
             display: none;
         }
         .utilidad-card b {
-            color: #c084fc;
-            text-shadow: 0 0 8px rgba(192, 132, 252, 0.85);
+            color: var(--naranja);
         }
         .btn-xreport {
             margin: 8px auto 0 auto;
@@ -84,12 +87,12 @@
             padding: 7px 12px;
             border-radius: 999px;
             border: none;
-            background: linear-gradient(90deg, rgba(95, 188, 207, 0.35), rgba(140, 127, 212, 0.35));
-            color: #d8e9ef;
+            background: linear-gradient(90deg, rgba(253, 216, 53, 0.85), rgba(251, 140, 0, 0.7));
+            color: var(--choco);
             font-size: 0.76rem;
             font-weight: bold;
             cursor: pointer;
-            box-shadow: inset 0 1px 0 rgba(140, 207, 220, 0.55);
+            box-shadow: 0 6px 12px rgba(245, 124, 0, 0.18);
         }
         .card-finanzas {
             margin: 10px 0 14px 0;
@@ -97,7 +100,7 @@
             border-radius: 14px;
             padding: 14px;
             background: var(--panel);
-            box-shadow: inset 0 2px 0 rgba(140, 207, 220, 0.45);
+            box-shadow: inset 0 3px 0 rgba(245, 124, 0, 0.35), 0 6px 16px rgba(141, 110, 99, 0.15);
             display: none;
         }
         .fin-grid {
@@ -119,10 +122,10 @@
         .fin-gastos b { color: #ff8181; text-shadow: 0 0 8px rgba(255, 129, 129, 0.45); }
         .fin-saldo {
             grid-column: span 2;
-            border-color: #7ef9ff;
-            box-shadow: 0 0 10px rgba(126, 249, 255, 0.24);
+            border-color: rgba(245, 124, 0, 0.32);
+            box-shadow: 0 6px 12px rgba(141, 110, 99, 0.14);
         }
-        .fin-saldo b { color: #7ef9ff; text-shadow: 0 0 8px rgba(126, 249, 255, 0.5); }
+        .fin-saldo b { color: var(--naranja); }
         .gasto-form {
             display: grid;
             grid-template-columns: 2fr 1fr 1.4fr auto;
@@ -141,15 +144,15 @@
         }
         .btn-gasto-quick {
             margin: 0;
-            background: linear-gradient(90deg, #06b6d4, #8b5cf6);
+            background: var(--naranja);
             color: white;
-            border: 1px solid #7ef9ff;
-            box-shadow: 0 0 8px rgba(126, 249, 255, 0.35);
+            border: none;
+            box-shadow: 0 6px 12px rgba(141, 110, 99, 0.14);
             padding: 8px 10px;
             font-size: 0.8rem;
         }
 
-        #reader { width: 100%; border-radius: 15px; border: none; box-shadow: inset 0 2px 0 rgba(140, 207, 220, 0.35); background: #000; overflow: hidden; }
+        #reader { width: 100%; border-radius: 15px; border: none; box-shadow: 0 8px 18px rgba(141, 110, 99, 0.2); background: #000; overflow: hidden; }
         .carrito {
             background: var(--panel);
             border: none;
@@ -159,7 +162,7 @@
             min-height: 80px;
             max-height: 180px;
             overflow-y: auto;
-            box-shadow: inset 0 2px 0 rgba(140, 207, 220, 0.42);
+            box-shadow: inset 0 3px 0 rgba(245, 124, 0, 0.28), 0 6px 16px rgba(141, 110, 99, 0.14);
         }
         .item { display: flex; justify-content: space-between; border-bottom: 1px solid #444; padding: 8px 0; font-size: 0.9rem; }
         .item-left { display: flex; flex-direction: column; gap: 3px; max-width: 60%; }
@@ -182,31 +185,31 @@
             padding: 5px 4px;
             font-size: 0.85rem;
             text-align: center;
-            background: #0f172a;
-            color: #d7eaf0;
-            border: 1px solid #4b5563;
+            background: rgba(255, 255, 255, 0.72);
+            color: var(--choco);
+            border: 1px solid rgba(141, 110, 99, 0.4);
             border-radius: 6px;
         }
         .item-subtotal {
-            color: #dceff5;
+            color: var(--choco);
             font-weight: bold;
         }
         
         .seccion-pago {
             background: var(--panel);
-            color: #e5e7eb;
+            color: var(--choco);
             border: none;
             border-radius: 15px;
             padding: 22px;
             margin-top: 15px;
             text-align: center;
-            box-shadow: inset 0 2px 0 rgba(140, 207, 220, 0.52);
+            box-shadow: inset 0 3px 0 rgba(245, 124, 0, 0.32), 0 8px 16px rgba(141, 110, 99, 0.16);
         }
         .total-grande {
             font-size: 3rem;
             font-weight: bold;
             margin: 5px 0;
-            color: #f3f9f5;
+            color: var(--naranja);
             letter-spacing: 0.6px;
         }
         
@@ -219,7 +222,7 @@
 
         .btn { width: 100%; padding: 15px; border: none; border-radius: 12px; font-weight: bold; font-size: 1rem; cursor: pointer; margin-top: 10px; }
         .btn-scan {
-            background: linear-gradient(90deg, #4eaec2, #7f72bf);
+            background: var(--naranja);
             color: #fff;
             box-shadow: none;
         }
@@ -229,9 +232,9 @@
             padding: 12px;
             font-size: 1.1rem;
             border-radius: 10px;
-            border: 1px solid #334155;
-            background: #0f172a;
-            color: #e5e7eb;
+            border: 1px solid rgba(141, 110, 99, 0.35);
+            background: rgba(255, 255, 255, 0.7);
+            color: var(--choco);
             text-align: center;
             margin-bottom: 10px;
             box-sizing: border-box;
@@ -239,13 +242,13 @@
 
         .btn-float { 
             position: fixed; bottom: 20px; right: 20px; 
-            background: rgba(30, 41, 59, 0.95);
-            color: #d6e6eb;
+            background: rgba(253, 216, 53, 0.9);
+            color: var(--choco);
             width: 55px; height: 55px; border-radius: 50%; 
             display: flex; align-items: center; justify-content: center; 
             font-size: 1.3rem; text-decoration: none; border: none;
             z-index: 1000;
-            box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+            box-shadow: 0 6px 14px rgba(141, 110, 99, 0.25);
         }
         .btn-float-left {
             left: 20px;
@@ -255,7 +258,7 @@
         .badge-role {
             font-size: 0.7rem;
             background: rgba(255, 255, 255, 0.06);
-            color: #d5e5eb;
+            color: var(--choco);
             padding: 2px 8px;
             border-radius: 10px;
             font-weight: bold;
@@ -275,21 +278,21 @@
         }
         .modal-card {
             width: min(92vw, 420px);
-            background: rgba(24, 32, 49, 0.96);
+            background: rgba(255, 236, 179, 0.9);
             border: none;
             border-radius: 16px;
-            box-shadow: inset 0 2px 0 rgba(140, 207, 220, 0.5), 0 8px 24px rgba(0, 0, 0, 0.35);
+            box-shadow: inset 0 3px 0 rgba(245, 124, 0, 0.32), 0 8px 20px rgba(141, 110, 99, 0.2);
             padding: 22px;
         }
         .modal-title {
-            color: #d8eaf0;
+            color: var(--choco);
             margin: 0 0 10px 0;
             font-size: 1.1rem;
             letter-spacing: 0.5px;
             text-transform: uppercase;
         }
         .modal-sub {
-            color: #d4d4d4;
+            color: var(--choco-soft);
             font-size: 0.78rem;
             margin: 0 0 14px 0;
         }
@@ -309,11 +312,11 @@
             margin-top: 0;
         }
         .btn-cerrar-modal {
-            background: #4b5563;
+            background: #8d6e63;
             color: white;
         }
         .btn-guardar-modal {
-            background: linear-gradient(90deg, #4eaec2, #7f72bf);
+            background: var(--naranja);
             color: #fff;
             box-shadow: none;
         }
@@ -328,9 +331,10 @@
             padding: 12px;
         }
         .btn-abrir-pago {
-            background: linear-gradient(90deg, rgba(78, 174, 194, 0.35), rgba(127, 114, 191, 0.35));
+            background: var(--amarillo-fuerte);
             border: none;
-            color: #e7f1f4;
+            color: var(--choco);
+            font-weight: 700;
         }
         .fiado-wsp-actions {
             position: fixed;
@@ -380,7 +384,7 @@
             color: #fff;
             background: rgba(20, 24, 34, 0.96);
             border: 1px solid #2d3748;
-            box-shadow: 0 0 12px rgba(34, 211, 238, 0.22);
+            box-shadow: 0 6px 12px rgba(141, 110, 99, 0.2);
             transform: translateX(10px);
             opacity: 0;
             transition: transform .18s ease, opacity .18s ease;
@@ -388,7 +392,130 @@
         .toast.show { transform: translateX(0); opacity: 1; }
         .toast-success { border-color: #39ff88; box-shadow: 0 0 12px rgba(57, 255, 136, 0.55); }
         .toast-error { border-color: #ff3b3b; box-shadow: 0 0 12px rgba(255, 59, 59, 0.62); }
-        .toast-info { border-color: #22d3ee; box-shadow: 0 0 12px rgba(34, 211, 238, 0.42); }
+        .toast-info { border-color: #f57c00; box-shadow: 0 0 12px rgba(245, 124, 0, 0.32); }
+
+        /* Honey Premium Dark Override */
+        :root {
+            --fondo: #0b1020;
+            --panel: #1a1f2c;
+            --panel-soft: #222838;
+            --txt-main: #ffffff;
+            --txt-soft: #bcc3d1;
+            --miel: #f6c453;
+            --naranja: #f57c00;
+            --ambar: #ffc107;
+            --rojo: #c44545;
+            --wsp: #2d7f56;
+            --txt-small: #e6e9ef;
+        }
+        body { background: var(--fondo); color: var(--txt-main); }
+        .header, .carrito, .seccion-pago, .modal-card, .card-finanzas, .fiado-wsp-actions, .login-card {
+            background: var(--panel);
+            color: var(--txt-main);
+            box-shadow: inset 0 1px 0 var(--miel), 0 8px 20px rgba(0,0,0,0.28);
+            border: none;
+            padding: 20px;
+        }
+        .fin-item, input, .qty-input, .gasto-form input, .utilidad-card, .badge-role {
+            background: var(--panel-soft);
+            color: var(--txt-main);
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: none;
+        }
+        .header h1, .modal-title, .item-subtotal, .badge-role { color: var(--txt-main); }
+        .modal-sub, .fiado-wsp-label, #mensaje-vacio { color: var(--txt-soft); }
+        .btn-scan { background: linear-gradient(90deg, #f57c00, #ffc107); color: #fff; }
+        .btn-abrir-pago { background: var(--ambar); color: #2a1c00; font-weight: 700; }
+        .total-grande { color: var(--ambar); }
+        .btn-whatsapp, .btn-whatsapp-fiado { background: var(--wsp); color: #fff; }
+        .m-fiado { background: var(--rojo); color: #fff; }
+        .btn-float { background: var(--panel-soft); color: #ffd067; }
+        .utilidad-card b, .fin-saldo b { color: var(--ambar); }
+        .btn-xreport, .btn-gasto-quick { background: var(--ambar); color: #2a1c00; box-shadow: none; }
+        #loginOverlay { background: rgba(11,16,32,0.98); }
+        .m-efectivo { background: linear-gradient(90deg, #f6c453, #2d7f56); }
+        .m-tarjeta { background: linear-gradient(90deg, #f6c453, #2f6bb3); }
+        .m-qr { background: linear-gradient(90deg, #f6c453, #7a4eb7); }
+
+        /* Pulido final: profundidad + lujo visual */
+        .header, .carrito, .seccion-pago, .card-finanzas {
+            background: rgba(26, 31, 44, 0.8);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            box-shadow: inset 0 1px 0 var(--miel), 0 0 12px rgba(246, 196, 83, 0.12), 0 10px 24px rgba(0, 0, 0, 0.3);
+            padding: 22px;
+        }
+        .total-grande,
+        #utilidad-dia-monto {
+            font-weight: 800;
+        }
+        .btn-float {
+            color: #8fd7e8;
+            box-shadow: 0 0 8px rgba(143, 215, 232, 0.18), 0 6px 14px rgba(0,0,0,0.3);
+        }
+        /* Pulido final cálido */
+        .header, .carrito, .seccion-pago, .modal-card, .card-finanzas, .fiado-wsp-actions, .login-card {
+            border-radius: 16px;
+            box-shadow: inset 0 1px 0 var(--miel), 0 12px 28px rgba(245, 124, 0, 0.14), 0 8px 22px rgba(255, 193, 7, 0.08);
+        }
+        input, .qty-input, .btn, .btn-m, .btn-float, .utilidad-card, .badge-role {
+            border-radius: 16px;
+            transition: all 0.2s ease;
+        }
+        .item { border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+        .btn-scan {
+            background: linear-gradient(90deg, #f57c00, #ffc107);
+            box-shadow: 0 10px 20px rgba(245, 124, 0, 0.26);
+        }
+        .total-grande { font-weight: 700; color: #ffc107; }
+        .btn-float { color: #ffd54f; box-shadow: 0 10px 20px rgba(255, 193, 7, 0.16), 0 6px 14px rgba(0,0,0,0.3); }
+        .btn-abrir-pago, .btn-xreport, .btn-gasto-quick { background: linear-gradient(90deg, #fbc02d, #ffc107); }
+        .item-meta { color: var(--txt-small); font-size: 0.74rem; }
+        @media (hover: hover) {
+            .btn:hover, .btn-m:hover, .btn-float:hover {
+                transform: translateY(-1px) scale(1.02);
+                filter: brightness(1.05);
+            }
+            input:hover, input:focus, .qty-input:focus {
+                box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.16);
+                border-color: rgba(255, 213, 79, 0.45);
+            }
+        }
+        /* Modal pago: alto contraste + feedback táctil */
+        .btn-m {
+            font-size: 0.92rem;
+            font-weight: 800;
+            letter-spacing: 0.2px;
+            border-radius: 16px;
+            min-height: 52px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: transform 0.12s ease, filter 0.16s ease, box-shadow 0.16s ease;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.22);
+        }
+        .m-efectivo {
+            background: linear-gradient(90deg, #12a862, #1fbe75);
+            color: #fff;
+        }
+        .m-tarjeta {
+            background: linear-gradient(90deg, #3557d6, #4f46e5);
+            color: #fff;
+        }
+        .m-qr {
+            background: linear-gradient(90deg, #00bcd4, #0ea5e9);
+            color: #fff;
+        }
+        .m-fiado {
+            background: linear-gradient(90deg, #f57c00, #f6a400);
+            color: #fff;
+        }
+        .btn-m:active {
+            transform: scale(0.96);
+            filter: brightness(0.95);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.24);
+        }
     </style>
 </head>
 <body>
@@ -397,8 +524,8 @@
 <div id="loginOverlay" style="display:none;">
     <img src="almacenhoney.png" alt="Logo" style="width: 120px; margin-bottom: 20px;">
     <div class="login-card">
-        <h2 style="color: #7ef9ff; margin: 0 0 15px 0; font-size: 1.2rem;">ACCESO PANEL HONEY</h2>
-        <input type="password" id="passCode" placeholder="Ingresa PIN" style="background: #0f172a; color: #e5e7eb; border: 1px solid #334155;">
+        <h2 style="color: var(--choco); margin: 0 0 15px 0; font-size: 1.2rem;">ACCESO PANEL HONEY</h2>
+        <input type="password" id="passCode" placeholder="Ingresa PIN" style="background: rgba(255,255,255,0.72); color: var(--choco); border: 1px solid rgba(141,110,99,0.35);">
         <button class="btn m-efectivo" id="btnEntrar" onclick="verificarAcceso()">ENTRAR</button>
         <p id="errorMsg" style="color: var(--rojo); font-size: 0.8rem; display: none; margin-top: 10px;">PIN Incorrecto o Error de Conexión</p>
     </div>
@@ -408,7 +535,7 @@
     <div class="header">
         <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 10px;">
             <span id="roleDisplay" class="badge-role">ROL: -</span>
-            <button onclick="salir()" style="background:rgba(15,23,42,0.9); border:1px solid #22d3ee; color:#7ef9ff; font-size:0.6rem; padding:2px 5px; border-radius:5px;">CERRAR SESIÓN</button>
+            <button onclick="salir()" style="background:rgba(253,216,53,0.92); border:none; color:var(--choco); font-size:0.6rem; padding:2px 5px; border-radius:5px;">CERRAR SESIÓN</button>
         </div>
         <img src="almacenhoney.png" alt="Logo Honey">
         <h1 id="nombre-local-header">ALMACÉN HONEY</h1>
@@ -448,9 +575,9 @@
         <div class="metodos-grid">
             <button class="btn-m m-efectivo" onclick="finalizarVenta('Efectivo')">💵 EFECTIVO</button>
             <button class="btn-m m-tarjeta" onclick="finalizarVenta('Tarjeta')">💳 TARJETA</button>
-            <button class="btn-m m-qr" onclick="finalizarVenta('QR')">📱 QR / MP</button>
+            <button class="btn-m m-qr" onclick="finalizarVenta('QR')">🔳 QR / MP</button>
             <button class="btn-m m-transfe" onclick="finalizarVenta('Transferencia')">🏦 TRANSF.</button>
-            <button class="btn-m" style="background:#6d28d9;" onclick="abrirModalFiado()">🧾 FIADO / CRÉDITO</button>
+            <button class="btn-m m-fiado" onclick="abrirModalFiado()">🤝 FIADO / CRÉDITO</button>
         </div>
         <div class="modal-actions" style="margin-top:12px;">
             <button class="btn btn-cerrar-modal" onclick="cerrarModalPago()">Cerrar</button>
@@ -772,7 +899,7 @@
                 lista.innerHTML += `<div class="item">
                     <div class="item-left">
                         <span>${prod.nombre}</span>
-                        <span style="color:#cbd5e1; font-size:0.74rem;">Unit: ${formatoMoneda(prod.precio)}</span>
+                        <span class="item-meta">Unit: ${formatoMoneda(prod.precio)}</span>
                     </div>
                     <div class="item-right">
                         <div class="qty-box">
