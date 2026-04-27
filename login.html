@@ -163,17 +163,23 @@
         }
         .glass-doors {
             position: fixed;
-            inset: 0;
-            z-index: 9999;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 100000;
             display: none;
             pointer-events: none;
             background: rgba(11, 16, 32, 0.55);
+            opacity: 0;
         }
         .glass-doors.show {
-            display: block;
+            display: flex;
+            opacity: 1;
         }
         .glass-doors.active {
-            display: block;
+            display: flex;
+            opacity: 1;
         }
         .door-panel {
             position: absolute;
@@ -413,17 +419,23 @@
         return String(user?.user_metadata?.role || user?.app_metadata?.role || 'EMPLEADO').toUpperCase();
     }
 
-    async function reproducirPuertasDeVidrio(nombreComercio) {
+    async function ejecutarTransicion(nombreComercio) {
         const doors = document.getElementById('glass-doors');
         const msg = document.getElementById('bienvenida-doors');
         if (!doors || !msg) return;
         msg.textContent = nombreComercio ? `¡Bienvenidos a ${nombreComercio}!` : '¡Bienvenidos a Tu Almacén!';
         doors.classList.remove('open');
+        doors.style.display = 'flex';
+        doors.style.opacity = '1';
         doors.classList.add('active', 'show');
+        console.log('Puertas Iniciadas');
         await new Promise((r) => setTimeout(r, 150));
         doors.classList.add('open');
-        await new Promise((r) => setTimeout(r, 1550));
+        await new Promise((resolve) => setTimeout(resolve, 1800));
         doors.classList.remove('active', 'show', 'open');
+        doors.style.display = 'none';
+        doors.style.opacity = '0';
+        console.log('Redireccionando');
     }
 
     function abrirModalRecupero() {
@@ -480,7 +492,7 @@
             localStorage.setItem("honey_user_role", rol);
             document.getElementById('subtitulo').innerText = bienvenida;
             authRedirectHandled = true;
-            await reproducirPuertasDeVidrio(nombreComercio);
+            await ejecutarTransicion(nombreComercio);
             showToast('Acceso correcto. Redirigiendo...', 'success', 1300);
             window.location.href = 'index.html';
         } catch (err) {
