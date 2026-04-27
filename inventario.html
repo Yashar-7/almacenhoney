@@ -729,6 +729,39 @@
     let currentUserId = null;
     let nombreComercioActual = "Tu Almacén";
 
+    function getInventarioCacheKey() {
+        return `honey_inventario_cache_${currentUserId || 'anon'}`;
+    }
+
+    function guardarInventarioEnCache(lista) {
+        try {
+            const payload = {
+                updatedAt: Date.now(),
+                items: Array.isArray(lista) ? lista : []
+            };
+            localStorage.setItem(getInventarioCacheKey(), JSON.stringify(payload));
+        } catch (_) {
+            // Ignorar errores de cuota/localStorage
+        }
+    }
+
+    function cargarInventarioDesdeCache() {
+        try {
+            const raw = localStorage.getItem(getInventarioCacheKey());
+            if (!raw) return [];
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed?.items) ? parsed.items : [];
+        } catch (_) {
+            return [];
+        }
+    }
+
+    function recalcularCategoriasDesdeProductos() {
+        categoriasCache = [...new Set((productosCache || [])
+            .map(x => String(x?.categoria || '').trim())
+            .filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    }
+
     function resolverRolUsuario(user) {
         const email = String(user?.email || "").toLowerCase();
         if (email === FORCE_ADMIN_EMAIL) return "ADMIN";
@@ -1312,12 +1345,28 @@
     async function cargarListaMercaderia() {
         const cuerpo = document.getElementById('cuerpo-tabla');
         cuerpo.innerHTML = "Cargando...";
-        const { data, error } = await _supabase.from('productos_almacen').select('*').eq('user_id', currentUserId).order('nombre', { ascending: true });
+        const { data, error } = await _supabase
+            .from('productos_almacen')
+            .select('*')
+            .eq('user_id', currentUserId)
+            .order('nombre', { ascending: true });
+
         if (error) {
+            const cache = cargarInventarioDesdeCache();
+            if (cache.length > 0) {
+                productosCache = cache;
+                existeColumnaCategoria = productosCache.length > 0 ? Object.prototype.hasOwnProperty.call(productosCache[0], 'categoria') : false;
+                recalcularCategoriasDesdeProductos();
+                renderTablaInventario();
+                showToast('Sin señal. Mostrando inventario guardado en este dispositivo.', 'info', 3200);
+                return;
+            }
             showToast('No se pudo cargar inventario: ' + error.message, 'error', 3000);
+            cuerpo.innerHTML = `<tr><td colspan="${currentUserRole === 'ADMIN' ? 4 : 3}" style="text-align:center; color:#94a3b8;">Sin conexión y sin datos guardados.</td></tr>`;
             return;
         }
         productosCache = data || [];
+        guardarInventarioEnCache(productosCache);
         existeColumnaCategoria = productosCache.length > 0 ? Object.prototype.hasOwnProperty.call(productosCache[0], 'categoria') : false;
         await cargarCategoriasUnicasDesdeBD();
         renderTablaInventario();
@@ -1334,7 +1383,7 @@
             .eq('user_id', currentUserId)
             .not('categoria', 'is', null);
         if (error) {
-            categoriasCache = [];
+            recalcularCategoriasDesdeProductos();
             return;
         }
         categoriasCache = [...new Set((data || []).map(x => (x.categoria || '').trim()).filter(Boolean))]
@@ -1428,6 +1477,11 @@
             }
             showToast("No se pudo actualizar stock: " + error.message, "error", 3000);
             return;
+        }
+        const idx = productosCache.findIndex(p => p.codigo_barras === codigo);
+        if (idx >= 0) {
+            productosCache[idx].stock = nuevoStock;
+            guardarInventarioEnCache(productosCache);
         }
         showToast(delta > 0 ? "+1 en Stock" : "-1 en Stock", "success", 1200);
     }
