@@ -349,10 +349,33 @@
         }
     }
 
-    function obtenerRolUsuario(user) {
+    function normalizarRolMeta(val) {
+        const s = String(val ?? "").trim().toLowerCase();
+        if (!s) return null;
+        if (s === "admin" || s === "administrador") return "ADMIN";
+        if (s === "empleado" || s === "employee" || s === "cajero") return "EMPLEADO";
+        return null;
+    }
+
+    async function obtenerRolUsuario(user) {
         const email = String(user?.email || "").toLowerCase();
         if (email === FORCE_ADMIN_EMAIL) return "ADMIN";
-        return String(user?.user_metadata?.role || user?.app_metadata?.role || 'EMPLEADO').toUpperCase();
+        if (user?.id) {
+            try {
+                const { data, error } = await _supabase
+                    .from("perfiles")
+                    .select("rol")
+                    .eq("id", user.id)
+                    .maybeSingle();
+                if (!error && data?.rol) {
+                    const desdeTabla = normalizarRolMeta(data.rol);
+                    if (desdeTabla) return desdeTabla;
+                }
+            } catch (_) {
+                /* fallback metadata */
+            }
+        }
+        return String(user?.user_metadata?.role || user?.app_metadata?.role || "EMPLEADO").toUpperCase();
     }
 
 
@@ -385,6 +408,39 @@
         }
     }
 
+    /** Depura errores de Auth/GoTrue en consola (p. ej. trigger en perfiles, columnas, RLS). */
+    function logAuthError(contexto, error) {
+        console.groupCollapsed(`[Honey Auth] ${contexto}`);
+        if (!error) {
+            console.warn('(sin objeto error)');
+            console.groupEnd();
+            return;
+        }
+        const campos = ['name', 'message', 'status', 'code', 'details', 'hint', '__isAuthError'];
+        const plano = {};
+        campos.forEach((k) => {
+            if (error[k] !== undefined) plano[k] = error[k];
+        });
+        if (error.detail !== undefined) plano.detail = error.detail;
+        console.error('Resumen:', plano);
+        console.error('Objeto completo:', error);
+        try {
+            console.error('JSON:', JSON.stringify(error, campos.concat(['detail'])));
+        } catch (_) {
+            try {
+                console.error('toString:', String(error));
+            } catch (__) {}
+        }
+        console.groupEnd();
+        if (error.message && String(error.message).toLowerCase().includes('database error')) {
+            console.warn(
+                '[Honey Auth] Si ves "Database error saving new user", suele ser el trigger en public.perfiles ' +
+                '(RLS durante signup: auth.uid() es null). En Supabase ejecutá el script que hace SET LOCAL row_security = off ' +
+                'dentro de handle_new_user_perfil — ver supabase_perfiles.sql o supabase_perfiles_trigger_fix.sql.'
+            );
+        }
+    }
+
     async function procesarAuth() {
         const email = document.getElementById('email').value.trim();
         const password = document.getElementById('password').value;
@@ -395,23 +451,24 @@
         try {
             if (modoRegistro) {
                 const { error } = await _supabase.auth.signUp({ email, password });
-                if (error) throw error;
+                if (error) throw Object.assign(error, { _honeyContext: 'signUp' });
                 showToast('Cuenta creada. Revisa tu correo para confirmarla.', 'success', 3000);
                 modoRegistro = true;
                 toggleModoRegistro();
                 return;
             }
             const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
-            if (error) throw error;
+            if (error) throw Object.assign(error, { _honeyContext: 'signInWithPassword' });
             const nombreComercio = await obtenerNombreComercioPorUsuario(data?.user?.id);
             const bienvenida = nombreComercio ? `¡Bienvenidos a ${nombreComercio}!` : '¡Bienvenidos a Tu Almacén!';
-            const rol = obtenerRolUsuario(data?.user);
+            const rol = await obtenerRolUsuario(data?.user);
             localStorage.setItem(NEGOCIO_NOMBRE_KEY, nombreComercio || "Tu Almacén");
             localStorage.setItem("honey_user_role", rol);
             document.getElementById('subtitulo').innerText = bienvenida;
             showToast('Acceso correcto. Redirigiendo...', 'success', 1300);
             window.location.href = 'index.html';
         } catch (err) {
+            logAuthError(err?._honeyContext || 'procesarAuth', err);
             showToast(err.message || 'Error de autenticación.', 'error', 3200);
         }
     }

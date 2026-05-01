@@ -720,6 +720,7 @@
 
     /** Rol actual en memoria (se establece tras verificar contra Supabase). No confiar solo en almacenamiento. */
     let currentUserRole = null;
+    let perfilUsuario = null;
     let toastTimeoutRef = null;
     let productosCache = [];
     let categoriasCache = [];
@@ -762,9 +763,38 @@
             .filter(Boolean))].sort((a, b) => a.localeCompare(b));
     }
 
+    function normalizarRolMeta(val) {
+        const s = String(val ?? "").trim().toLowerCase();
+        if (!s) return null;
+        if (s === "admin" || s === "administrador") return "ADMIN";
+        if (s === "empleado" || s === "employee" || s === "cajero") return "EMPLEADO";
+        return null;
+    }
+
+    async function cargarPerfilUsuario(userId) {
+        perfilUsuario = null;
+        if (!userId) return null;
+        try {
+            const { data, error } = await _supabase
+                .from("perfiles")
+                .select("id, email, nombre_almacen, rol, id_jefe")
+                .eq("id", userId)
+                .maybeSingle();
+            if (error) throw error;
+            perfilUsuario = data || null;
+            return perfilUsuario;
+        } catch (err) {
+            console.warn("No se pudo cargar public.perfiles:", err?.message || err);
+            perfilUsuario = null;
+            return null;
+        }
+    }
+
     function resolverRolUsuario(user) {
         const email = String(user?.email || "").toLowerCase();
         if (email === FORCE_ADMIN_EMAIL) return "ADMIN";
+        const desdeTabla = normalizarRolMeta(perfilUsuario?.rol);
+        if (desdeTabla) return desdeTabla;
         return String(user?.user_metadata?.role || user?.app_metadata?.role || localStorage.getItem("honey_user_role") || 'EMPLEADO').toUpperCase();
     }
 
@@ -1031,6 +1061,7 @@
         const { data: { user }, error } = await _supabase.auth.getUser();
         if (error || !user) return null;
         currentUserId = user.id;
+        await cargarPerfilUsuario(user.id);
         currentUserRole = resolverRolUsuario(user);
         localStorage.setItem("honey_user_role", currentUserRole);
         return currentUserRole;
@@ -1049,6 +1080,7 @@
             return;
         }
         currentUserId = user.id;
+        await cargarPerfilUsuario(user.id);
         currentUserRole = resolverRolUsuario(user);
         localStorage.setItem("honey_user_role", currentUserRole);
         await cargarConfiguracionNegocioInventario();

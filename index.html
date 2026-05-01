@@ -261,6 +261,47 @@
             right: auto;
         }
 
+        .panel-buscador-producto {
+            background: rgba(26, 31, 44, 0.8);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border-radius: 16px;
+            padding: 14px 16px;
+            margin-bottom: 12px;
+            box-shadow: inset 0 1px 0 var(--miel), 0 8px 20px rgba(0, 0, 0, 0.28);
+        }
+        .buscador-label {
+            display: block;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--txt-soft);
+            margin-bottom: 8px;
+        }
+        .buscador-row {
+            display: flex;
+            gap: 10px;
+            align-items: stretch;
+            flex-wrap: wrap;
+        }
+        .buscador-row input {
+            flex: 1;
+            min-width: 160px;
+            margin-bottom: 0;
+        }
+        .btn-buscar-producto {
+            width: auto;
+            min-width: 110px;
+            margin-top: 0;
+            padding: 12px 18px;
+            background: linear-gradient(90deg, #f57c00, #ffc107);
+            color: #fff;
+            border: none;
+            border-radius: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
         .badge-role {
             font-size: 0.7rem;
             background: rgba(255, 255, 255, 0.06);
@@ -532,21 +573,23 @@
             z-index: 9999;
             display: flex;
             pointer-events: auto;
-            background: #0b1020;
+            background: transparent;
         }
         .gate-left, .gate-right {
             position: absolute;
             top: 0;
             width: 50%;
             height: 100%;
-            background: rgba(11, 16, 32, 0.96);
-            border: 2px solid #f2b705;
+            background: rgba(5, 5, 8, 0.6);
+            border: 2px solid #F2B705;
+            border-style: solid;
+            box-sizing: border-box;
             box-shadow: inset 0 0 0 1px rgba(242, 183, 5, 0.45);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
         }
-        .gate-left { left: 0; border-right: 2px solid #f2b705; }
-        .gate-right { right: 0; border-left: 2px solid #f2b705; }
+        .gate-left { left: 0; border-right: 2px solid #F2B705; }
+        .gate-right { right: 0; border-left: 2px solid #F2B705; }
         #gate-message {
             position: absolute;
             left: 50%;
@@ -593,7 +636,15 @@
         <button id="btn-xreport" class="btn-xreport" onclick="enviarXReportWhatsApp()">📊 X-REPORT WHATSAPP</button>
     </div>
 
-    <div onclick="irAInventario()" class="btn-float">📦</div>
+    <div id="panel-buscador-producto" class="panel-buscador-producto">
+        <label class="buscador-label" for="input-buscar-producto">Buscar producto</label>
+        <div class="buscador-row">
+            <input type="search" id="input-buscar-producto" placeholder="Código de barras o nombre" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();buscarProductoManual();}">
+            <button type="button" class="btn-buscar-producto" onclick="buscarProductoManual()">Buscar</button>
+        </div>
+    </div>
+
+    <div id="btn-float-inventario" onclick="irAInventario()" class="btn-float" title="Inventario y costos">📦</div>
     <div id="btn-config-float" onclick="abrirModalConfiguracion()" class="btn-float btn-float-left">⚙️</div>
 
     <div id="reader"></div>
@@ -679,6 +730,8 @@
 
     let currentUserRole = null;
     let currentUserId = null;
+    /** Fila de public.perfiles (rol, id_jefe, nombre_almacen); null si no existe o falla la lectura. */
+    let perfilUsuario = null;
     let carrito = [];
     let total = 0;
     let perfilNegocio = {
@@ -780,10 +833,61 @@
         return `${moneda}${Number(valor || 0).toFixed(2)}`;
     }
 
+    function normalizarRolMeta(val) {
+        const s = String(val ?? "").trim().toLowerCase();
+        if (!s) return null;
+        if (s === "admin" || s === "administrador") return "ADMIN";
+        if (s === "empleado" || s === "employee" || s === "cajero") return "EMPLEADO";
+        return null;
+    }
+
+    async function cargarPerfilUsuario(userId) {
+        perfilUsuario = null;
+        if (!userId) return null;
+        try {
+            const { data, error } = await _supabase
+                .from("perfiles")
+                .select("id, email, nombre_almacen, rol, id_jefe")
+                .eq("id", userId)
+                .maybeSingle();
+            if (error) throw error;
+            perfilUsuario = data || null;
+            return perfilUsuario;
+        } catch (err) {
+            console.warn("No se pudo cargar public.perfiles:", err?.message || err);
+            perfilUsuario = null;
+            return null;
+        }
+    }
+
     function resolverRolUsuario(user) {
         const email = String(user?.email || "").toLowerCase();
         if (email === FORCE_ADMIN_EMAIL) return "ADMIN";
-        return String(user?.user_metadata?.role || user?.app_metadata?.role || localStorage.getItem("honey_user_role") || 'EMPLEADO').toUpperCase();
+        const desdeTabla = normalizarRolMeta(perfilUsuario?.rol);
+        if (desdeTabla) return desdeTabla;
+        const desdeMeta =
+            normalizarRolMeta(user?.user_metadata?.role) ||
+            normalizarRolMeta(user?.app_metadata?.role) ||
+            normalizarRolMeta(localStorage.getItem("honey_user_role"));
+        if (desdeMeta) return desdeMeta;
+        const legacy = user?.user_metadata?.role ?? user?.app_metadata?.role ?? localStorage.getItem("honey_user_role");
+        if (legacy !== undefined && legacy !== null && String(legacy).trim() !== "") {
+            const u = String(legacy).trim().toUpperCase();
+            if (u === "ADMIN") return "ADMIN";
+        }
+        return "EMPLEADO";
+    }
+
+    function aplicarPermisosDashboard() {
+        const admin = currentUserRole === "ADMIN";
+        const util = document.getElementById("utilidad-dia-card");
+        const xrep = document.getElementById("btn-xreport");
+        const cfg = document.getElementById("btn-config-float");
+        const inv = document.getElementById("btn-float-inventario");
+        if (util) util.style.display = admin ? "inline-block" : "none";
+        if (xrep) xrep.style.display = admin ? "inline-block" : "none";
+        if (cfg) cfg.style.display = admin ? "flex" : "none";
+        if (inv) inv.style.display = admin ? "flex" : "none";
     }
 
     function verificarAcceso() {
@@ -797,21 +901,14 @@
             return;
         }
         currentUserId = user.id;
+        await cargarPerfilUsuario(user.id);
         currentUserRole = resolverRolUsuario(user);
         localStorage.setItem("honey_user_role", currentUserRole);
         await cargarConfiguracionNegocioUsuario();
         document.getElementById('appContent').style.display = 'block';
         document.getElementById('roleDisplay').innerText = "ROL: " + currentUserRole;
-        const btnConfigFloat = document.getElementById('btn-config-float');
-        if (btnConfigFloat) btnConfigFloat.style.display = currentUserRole === "ADMIN" ? 'flex' : 'none';
-        if (currentUserRole === "ADMIN") {
-            document.getElementById('utilidad-dia-card').style.display = 'inline-block';
-            document.getElementById('btn-xreport').style.display = 'inline-block';
-            await cargarUtilidadDelDia();
-        } else {
-            document.getElementById('utilidad-dia-card').style.display = 'none';
-            document.getElementById('btn-xreport').style.display = 'none';
-        }
+        aplicarPermisosDashboard();
+        if (currentUserRole === "ADMIN") await cargarUtilidadDelDia();
     }
 
     _supabase.auth.onAuthStateChange((event, session) => {
@@ -1043,14 +1140,9 @@
         }).catch(err => showToast("Error de cámara: " + err, "error", 3000));
     }
 
-    async function buscarProducto(codigo) {
-        const { data, error } = await _supabase
-            .from('productos_almacen')
-            .select('*')
-            .eq('codigo_barras', codigo)
-            .eq('user_id', currentUserId)
-            .single();
-        if (error || !data) { showToast("Producto no registrado.", "error"); return; }
+    function agregarProductoAlCarritoDesdeData(data, opts = {}) {
+        if (!data) return;
+        const silent = !!opts.silent;
         const existente = carrito.findIndex(p => p.codigo === data.codigo_barras);
         if (existente >= 0) {
             carrito[existente].cantidad += 1;
@@ -1065,6 +1157,49 @@
             });
         }
         actualizarPantalla();
+        if (!silent) showToast(`${data.nombre} agregado al carrito`, "success");
+    }
+
+    async function buscarProductoManual() {
+        const input = document.getElementById("input-buscar-producto");
+        const raw = (input?.value || "").trim();
+        if (!raw) return showToast("Ingresá código o nombre.", "info");
+        const { data: exact, error: errExact } = await _supabase
+            .from("productos_almacen")
+            .select("*")
+            .eq("user_id", currentUserId)
+            .eq("codigo_barras", raw)
+            .maybeSingle();
+        if (!errExact && exact) {
+            agregarProductoAlCarritoDesdeData(exact);
+            if (input) input.value = "";
+            return;
+        }
+        const { data: rows, error: errLike } = await _supabase
+            .from("productos_almacen")
+            .select("*")
+            .eq("user_id", currentUserId)
+            .ilike("nombre", `%${raw}%`)
+            .limit(15);
+        if (errLike) return showToast("Error al buscar: " + errLike.message, "error");
+        if (!rows?.length) return showToast("Producto no encontrado.", "error");
+        if (rows.length === 1) {
+            agregarProductoAlCarritoDesdeData(rows[0]);
+            if (input) input.value = "";
+            return;
+        }
+        showToast(`${rows.length} coincidencias. Afiná el nombre o usá el código exacto.`, "info");
+    }
+
+    async function buscarProducto(codigo) {
+        const { data, error } = await _supabase
+            .from('productos_almacen')
+            .select('*')
+            .eq('codigo_barras', codigo)
+            .eq('user_id', currentUserId)
+            .single();
+        if (error || !data) { showToast("Producto no registrado.", "error"); return; }
+        agregarProductoAlCarritoDesdeData(data, { silent: true });
     }
 
     function actualizarPantalla() {

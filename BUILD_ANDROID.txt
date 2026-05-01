@@ -1,0 +1,29 @@
+Almacén Honey — compilación Android (.aab)
+==========================================
+
+Versión en android/app/build.gradle:
+  versionCode 1
+  versionName "1.0.0"
+
+Requisitos en tu PC:
+  - Node.js + npm (ya usados para npm install).
+  - JDK 17 (Android Gradle Plugin 8.x). Definí JAVA_HOME apuntando al JDK.
+  - Android SDK (Android Studio instalado suele bastar).
+
+Generar carpeta www y sincronizar con native:
+  npm run sync
+
+Abrir proyecto en Android Studio:
+  npm run android:open
+
+Generar App Bundle desde consola (con JAVA_HOME configurado):
+  npm run android:open   (opcional)
+  npm run sync
+  cd android
+  gradlew.bat bundleRelease
+
+Salida del .aab firmado (tras configurar firma):
+  android\app\build\outputs\bundle\release\app-release.aab
+
+Sin keystore configurado: el comando puede fallar o usar firma debug según Gradle;
+para Play Console necesitás firma release (pasos en el README del usuario / respuesta Cursor).

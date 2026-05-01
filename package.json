@@ -1,0 +1,19 @@
+{
+  "name": "almacenhoney",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Almacén Honey — envoltorio Capacitor para Play Store",
+  "scripts": {
+    "prepare:www": "node scripts/prepare-www.js",
+    "sync": "npm run prepare:www && npx cap sync android",
+    "android:open": "npx cap open android",
+    "android:bundle": "npm run sync && cd android && gradlew.bat bundleRelease"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/core": "^6.2.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0"
+  }
+}

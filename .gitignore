@@ -1,0 +1,15 @@
+node_modules/
+www/
+.capacitor/
+
+# Android build / IDE (no subir artefactos locales)
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+*.iml
+
+# Firma release (no subir al repo)
+android/keystore.properties
+*.jks
+*.keystore

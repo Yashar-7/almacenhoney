@@ -1,0 +1,11 @@
+{
+  "appId": "com.almacenhoney.app",
+  "appName": "Almacén Honey",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": true
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

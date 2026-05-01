@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Almacén Honey</string>
+    <string name="title_activity_main">Almacén Honey</string>
+    <string name="package_name">com.almacenhoney.app</string>
+    <string name="custom_url_scheme">com.almacenhoney.app</string>
+</resources>
