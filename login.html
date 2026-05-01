@@ -27,17 +27,35 @@
         * { box-sizing: border-box; }
         body {
             margin: 0;
-            min-height: 100vh;
+            height: 100vh;
+            height: 100dvh;
             font-family: "Segoe UI", Arial, sans-serif;
             color: var(--text);
             background: radial-gradient(circle at 20% 10%, rgba(139, 92, 246, 0.12), transparent 42%),
                         radial-gradient(circle at 80% 90%, rgba(125, 199, 212, 0.09), transparent 44%),
                         var(--bg);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 16px 16px 56px 16px;
             overflow: hidden;
+        }
+        .login-scroll {
+            position: relative;
+            z-index: 1;
+            height: 100%;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior-y: contain;
+            padding: 16px;
+            padding-bottom: max(16px, env(safe-area-inset-bottom));
+            box-sizing: border-box;
+        }
+        .login-scroll-inner {
+            min-height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 18px;
+            padding-bottom: 8px;
         }
         #particles {
             position: fixed;
@@ -246,10 +264,8 @@
             margin-top: 0;
         }
         .login-foot {
-            position: fixed;
-            left: 50%;
-            bottom: 12px;
-            transform: translateX(-50%);
+            position: static;
+            flex-shrink: 0;
             text-align: center;
             font-size: 0.72rem;
             line-height: 1.25;
@@ -259,6 +275,8 @@
             pointer-events: none;
             letter-spacing: 0.2px;
             width: 100%;
+            max-width: min(94vw, 410px);
+            padding-top: 4px;
         }
     </style>
 </head>
@@ -266,9 +284,11 @@
     <canvas id="particles"></canvas>
     <div id="toast-wrap" class="toast-wrap"></div>
 
+    <div class="login-scroll">
+    <div class="login-scroll-inner">
     <div class="card">
         <div class="brand-logo-wrap">
-            <img class="brand-logo" src="assets/images/app_logo_honey.png" alt="Logo Almacén Honey">
+            <img class="brand-logo" src="assets/almacenhoney.png" alt="Logo Almacén Honey">
         </div>
         <h1 class="brand">HONEY - GESTIÓN DE STOCK</h1>
         <p id="subtitulo" class="sub">Inicia sesión para entrar al dashboard.</p>
@@ -305,6 +325,8 @@
     <div class="login-foot">
         <div>Powered by SMART TECH</div>
         <div>Sentinel Security Integrated</div>
+    </div>
+    </div>
     </div>
 
     <div id="modal-recupero" class="modal-overlay">
