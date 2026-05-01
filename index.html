@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#fff8e1">
+    <meta name="theme-color" content="#0a0d10">
     <title>Almacén Honey - Punto de Venta Seguro</title>
     <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
@@ -43,6 +43,14 @@
         
         /* PANTALLA DE BLOQUEO */
         #loginOverlay { position: fixed; inset: 0; background: rgba(255, 248, 225, 0.98); z-index: 2000; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+        .welcome-logo {
+            width: 150px;
+            height: 150px;
+            object-fit: contain;
+            display: block;
+            margin-bottom: 20px;
+            filter: drop-shadow(0 0 8px rgba(0, 229, 255, 0.7)) drop-shadow(0 0 18px rgba(0, 229, 255, 0.45));
+        }
         .login-card {
             background: rgba(255, 236, 179, 0.88);
             padding: 30px;
@@ -443,7 +451,7 @@
 
         /* Honey Premium Dark Override */
         :root {
-            --fondo: #0b1020;
+            --fondo: #0a0d10;
             --panel: #1a1f2c;
             --panel-soft: #222838;
             --txt-main: #ffffff;
@@ -604,6 +612,100 @@
             text-shadow: 0 0 10px rgba(242, 183, 5, 0.45);
             pointer-events: none;
         }
+
+        /* Branding cyber: fondo login + bordes cian + botones naranja neón */
+        body {
+            background: radial-gradient(circle at 20% 10%, rgba(139, 92, 246, 0.12), transparent 42%),
+                        radial-gradient(circle at 80% 90%, rgba(125, 199, 212, 0.09), transparent 44%),
+                        var(--fondo) !important;
+        }
+        .panel-buscador-producto,
+        .header,
+        .carrito,
+        .seccion-pago {
+            border: 1px solid rgba(0, 229, 255, 0.42) !important;
+            box-shadow:
+                inset 0 0 0 1px rgba(0, 229, 255, 0.06),
+                0 0 18px rgba(0, 229, 255, 0.07),
+                0 12px 28px rgba(0, 0, 0, 0.4) !important;
+        }
+        .btn-scan,
+        .btn-buscar-producto,
+        .btn-abrir-pago {
+            background: linear-gradient(90deg, #ff8f00, #ffab00) !important;
+            color: #fff !important;
+            font-weight: 700 !important;
+            box-shadow: 0 8px 22px rgba(255, 143, 0, 0.4) !important;
+        }
+        .header-top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            padding: 0 2px 12px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .sentinel-strip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+            border: none;
+            background: transparent;
+            padding: 0;
+        }
+        .sentinel-logo {
+            height: 32px !important;
+            width: auto !important;
+            object-fit: contain;
+            display: block;
+            margin-bottom: 0 !important;
+            border: none;
+            filter: brightness(0) invert(1) drop-shadow(0 0 8px rgba(0, 229, 255, 0.65));
+        }
+        .sentinel-active-text {
+            font-size: 0.62rem;
+            font-weight: 800;
+            letter-spacing: 0.14em;
+            color: #00e5ff;
+            text-shadow: 0 0 10px rgba(0, 229, 255, 0.85), 0 0 22px rgba(0, 229, 255, 0.35);
+            white-space: nowrap;
+        }
+        .header-top-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        .btn-cerrar-sesion {
+            background: rgba(0, 229, 255, 0.1) !important;
+            border: 1px solid rgba(0, 229, 255, 0.35) !important;
+            color: #e8f8ff !important;
+            font-size: 0.62rem;
+            padding: 6px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .header .header-brand-logo {
+            height: 92px;
+            width: auto;
+            margin-bottom: 6px;
+            filter: drop-shadow(0 0 14px rgba(0, 229, 255, 0.22));
+        }
+        @media (max-width: 600px) {
+            .header .header-brand-logo { height: 68px; }
+            .sentinel-active-text { font-size: 0.52rem; letter-spacing: 0.1em; }
+        }
+        .dash-footer {
+            text-align: center;
+            font-size: 0.68rem;
+            color: var(--txt-soft);
+            opacity: 0.8;
+            margin: 22px 10px 14px;
+            letter-spacing: 0.04em;
+        }
     </style>
 </head>
 <body>
@@ -615,7 +717,7 @@
 <div id="toast-wrap" class="toast-wrap"></div>
 
 <div id="loginOverlay" style="display:none;">
-    <img src="almacenhoney.png" alt="Logo" style="width: 120px; margin-bottom: 20px;">
+    <img class="welcome-logo" src="assets/images/app_logo_honey.png" alt="Logo Almacén Honey">
     <div class="login-card">
         <h2 style="color: var(--choco); margin: 0 0 15px 0; font-size: 1.2rem;">ACCESO PANEL HONEY</h2>
         <input type="password" id="passCode" placeholder="Ingresa PIN" style="background: rgba(255,255,255,0.72); color: var(--choco); border: 1px solid rgba(141,110,99,0.35);">
@@ -626,11 +728,17 @@
 
 <div id="appContent" style="display: none;">
     <div class="header">
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 10px;">
-            <span id="roleDisplay" class="badge-role">ROL: -</span>
-            <button onclick="salir()" style="background:rgba(253,216,53,0.92); border:none; color:var(--choco); font-size:0.6rem; padding:2px 5px; border-radius:5px;">CERRAR SESIÓN</button>
+        <div class="header-top-bar">
+            <div class="sentinel-strip">
+                <img class="sentinel-logo" src="assets/images/smart_tech_sentinel.png" alt="Smart Tech Sentinel" width="36" height="36">
+                <span class="sentinel-active-text">SENTINEL ACTIVE</span>
+            </div>
+            <div class="header-top-actions">
+                <span id="roleDisplay" class="badge-role">ROL: -</span>
+                <button type="button" class="btn-cerrar-sesion" onclick="salir()">CERRAR SESIÓN</button>
+            </div>
         </div>
-        <img src="almacenhoney.png" alt="Logo Honey">
+        <img class="header-brand-logo" src="assets/images/app_logo_honey.png" alt="Logo Almacén Honey">
         <h1 id="nombre-local-header">ALMACÉN HONEY</h1>
         <div id="utilidad-dia-card" class="utilidad-card">Utilidad del Día: <b id="utilidad-dia-monto">$ 0.00</b></div>
         <button id="btn-xreport" class="btn-xreport" onclick="enviarXReportWhatsApp()">📊 X-REPORT WHATSAPP</button>
@@ -668,6 +776,8 @@
             <button id="btn-ticket-listo" class="btn btn-cerrar-modal" onclick="cerrarTicketPendienteManual()">✕ Listo</button>
         </div>
     </div>
+
+    <footer class="dash-footer">Powered by SMART TECH | Secure Connection</footer>
 </div>
 
 <div id="modal-pago" class="modal-overlay">
